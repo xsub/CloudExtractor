@@ -55,7 +55,9 @@ Po sprawdzeniu próbki uruchom pełny eksport z pustym `ICLOUD_RECENT`:
 docker compose run --rm -T extractor run
 ```
 
-Każdy przebieg kopiuje brakujące pliki z biblioteki głównej dostępnej dla `icloudpd`. Archiwum używa katalogów `<Apple ID>/rok/miesiąc` w UTC oraz nazw z identyfikatorem zasobu iCloud. Eksport obejmuje oryginały, część wideo Live Photo i dostępną alternatywną reprezentację zasobu, np. parę RAW+JPEG. Operacje usuwania są wyłączone. Po przerwaniu uruchom `run` ponownie z tą samą konfiguracją.
+Archiwum działa zawsze w trybie **APPEND**. Panel i CLI dopisują wyłącznie brakujące pliki. Archiwum zachowuje już pobrane zdjęcia i filmy po ich usunięciu z iCloud.
+
+Archiwum używa katalogów `<Apple ID>/rok/miesiąc` w UTC oraz nazw z identyfikatorem zasobu iCloud. Eksport obejmuje oryginały, część wideo Live Photo i dostępną alternatywną reprezentację zasobu, np. parę RAW+JPEG. Po przerwaniu uruchom `run` ponownie z tą samą konfiguracją.
 
 Przed odłączeniem iCloud trzeba zweryfikować kompletność osobno, w tym zakres zbiorów udostępnionych i wersje po edycji. `check` potwierdza dostępność miejsca zapisu.
 
@@ -85,3 +87,5 @@ Otwórz [panel CloudExtractor](http://127.0.0.1:8765). Jeśli ustawisz inny port
 ## Adaptery
 
 Moduły źródeł są w `cloudextractor/adapters/`. Każdy adapter wyznacza katalogi archiwum i stanu oraz argumenty procesu dla `run` i `auth`. Polecenie główne wybiera adapter przez `CLOUDEXTRACTOR_SOURCE`, sprawdza archiwum, blokuje równoległe użycie tego samego stanu i przekazuje kod zakończenia procesu. Import z Google Takeout może użyć tej samej obsługi katalogu docelowego i własnej konfiguracji wejścia.
+
+Adaptery przestrzegają trybu APPEND. Adapter iCloud przekazuje `icloudpd` ustaloną listę opcji w trybie Copy.

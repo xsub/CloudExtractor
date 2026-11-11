@@ -25,6 +25,7 @@ def prepare(action: str, archive: Path, state: Path) -> tuple[Path, Path, list[s
     if adp not in ("true", "false"):
         raise ValueError("ICLOUD_ADP_WEB_ACCESS must be true or false.")
 
+    # Keep the fixed arguments in icloudpd's Copy mode. The adapter accepts no raw flags.
     # The parameter provider without a password uses only the saved session.
     args = [
         "icloudpd",
