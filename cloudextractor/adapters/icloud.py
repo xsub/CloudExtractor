@@ -1,11 +1,19 @@
 import os
 from pathlib import Path
+import re
 
 
-def command(action: str, archive: Path, state: Path) -> list[str]:
-    username = os.environ.get("ICLOUD_USERNAME", "").strip()
-    if not username:
-        raise ValueError("Set ICLOUD_USERNAME to the email address of your Apple Account.")
+def prepare(action: str, archive: Path, state: Path) -> tuple[Path, Path, list[str]]:
+    username = os.environ.get("ICLOUD_USERNAME", "").strip().lower()
+    if action == "check" and not username:
+        return archive, state, []
+    if username.startswith("-") or not re.fullmatch(r"[^@/\\\s\x00-\x1f\x7f]+@[^@/\\\s\x00-\x1f\x7f]+", username):
+        raise ValueError("Set ICLOUD_USERNAME to an Apple Account email usable as a directory name.")
+
+    archive = archive / username
+    state = state / username
+    if action == "check":
+        return archive, state, []
 
     adp = os.environ.get("ICLOUD_ADP_WEB_ACCESS", "false").lower()
     if adp not in ("true", "false"):
@@ -22,7 +30,7 @@ def command(action: str, archive: Path, state: Path) -> list[str]:
     if adp == "true":
         args.append("--adp-web-access")
     if action == "auth":
-        return [*args, "--auth-only"]
+        return archive, state, [*args, "--auth-only"]
 
     args.extend([
         "--directory", str(archive),
@@ -37,4 +45,4 @@ def command(action: str, archive: Path, state: Path) -> list[str]:
         if not recent.isascii() or not recent.isdecimal() or int(recent) < 1:
             raise ValueError("ICLOUD_RECENT must be a positive integer or empty.")
         args.extend(["--recent", recent])
-    return args
+    return archive, state, args

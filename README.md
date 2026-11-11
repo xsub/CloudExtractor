@@ -55,10 +55,21 @@ Po sprawdzeniu próbki uruchom pełny eksport z pustym `ICLOUD_RECENT`:
 docker compose run --rm -T extractor run
 ```
 
-Każdy przebieg kopiuje brakujące pliki z biblioteki głównej dostępnej dla `icloudpd`. Archiwum używa katalogów `rok/miesiąc` w UTC oraz nazw z identyfikatorem zasobu iCloud. Eksport obejmuje oryginały, część wideo Live Photo i dostępną alternatywną reprezentację zasobu, np. parę RAW+JPEG. Operacje usuwania są wyłączone. Po przerwaniu uruchom `run` ponownie z tą samą konfiguracją.
+Każdy przebieg kopiuje brakujące pliki z biblioteki głównej dostępnej dla `icloudpd`. Archiwum używa katalogów `<Apple ID>/rok/miesiąc` w UTC oraz nazw z identyfikatorem zasobu iCloud. Eksport obejmuje oryginały, część wideo Live Photo i dostępną alternatywną reprezentację zasobu, np. parę RAW+JPEG. Operacje usuwania są wyłączone. Po przerwaniu uruchom `run` ponownie z tą samą konfiguracją.
 
 Przed odłączeniem iCloud trzeba zweryfikować kompletność osobno, w tym zakres zbiorów udostępnionych i wersje po edycji. `check` potwierdza dostępność miejsca zapisu.
 
+## Wiele kont Apple
+
+Każde uruchomienie obsługuje konto wskazane w `ICLOUD_USERNAME`. Konta mają osobne katalogi archiwum, sesje i blokady. Nazwa podkatalogu to adres konta zapisany małymi literami. Aby uwierzytelnić i przetestować kolejne konto, podstaw jego adres w obu poleceniach:
+
+```sh
+ICLOUD_USERNAME=drugie-konto@example.com docker compose run --rm extractor auth
+ICLOUD_USERNAME=drugie-konto@example.com ICLOUD_RECENT=20 docker compose run --rm -T extractor run
+```
+
+Przy aktualizacji z wersji jednokontowej zatrzymaj kontener i przenieś katalogi lat oraz pliki sesji do podkatalogu dotychczasowego Apple ID w ich katalogach nadrzędnych. Znacznik `.cloudextractor-archive` pozostaje w katalogu głównym archiwum.
+
 ## Adaptery
 
-Moduły źródeł są w `cloudextractor/adapters/`. Każdy adapter zwraca argumenty procesu dla `run` i może obsłużyć interaktywne `auth`. Polecenie główne wybiera adapter przez `CLOUDEXTRACTOR_SOURCE`, sprawdza archiwum, blokuje równoległe użycie tego samego stanu i przekazuje kod zakończenia procesu. Import z Google Takeout może użyć tej samej obsługi katalogu docelowego i własnej konfiguracji wejścia.
+Moduły źródeł są w `cloudextractor/adapters/`. Każdy adapter wyznacza katalogi archiwum i stanu oraz argumenty procesu dla `run` i `auth`. Polecenie główne wybiera adapter przez `CLOUDEXTRACTOR_SOURCE`, sprawdza archiwum, blokuje równoległe użycie tego samego stanu i przekazuje kod zakończenia procesu. Import z Google Takeout może użyć tej samej obsługi katalogu docelowego i własnej konfiguracji wejścia.
