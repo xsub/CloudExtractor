@@ -1,0 +1,21 @@
+services:
+  extractor:
+    build: .
+    init: true
+    user: "${CLOUDEXTRACTOR_UID:-1000}:${CLOUDEXTRACTOR_GID:-1000}"
+    environment:
+      CLOUDEXTRACTOR_SOURCE: ${CLOUDEXTRACTOR_SOURCE:-icloud}
+      ICLOUD_USERNAME: ${ICLOUD_USERNAME:-}
+      ICLOUD_ADP_WEB_ACCESS: ${ICLOUD_ADP_WEB_ACCESS:-false}
+      ICLOUD_RECENT: ${ICLOUD_RECENT:-}
+    volumes:
+      - type: bind
+        source: ${ARCHIVE_HOST_PATH:?Set ARCHIVE_HOST_PATH in .env}
+        target: /archive
+        bind:
+          create_host_path: false
+      - type: bind
+        source: ${STATE_HOST_PATH:-./.state/icloud}
+        target: /state
+        bind:
+          create_host_path: false

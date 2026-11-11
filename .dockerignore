@@ -1,0 +1,4 @@
+**
+!Dockerfile
+!cloudextractor/
+!cloudextractor/**/*.py
