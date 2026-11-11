@@ -10,6 +10,8 @@ import sys
 from tempfile import NamedTemporaryFile
 from threading import Lock, Thread, Timer
 
+from cloudextractor.catalog import Catalog
+
 
 LOG_LINE = re.compile(r"^\d{4}-\d{2}-\d{2} \d{2}:\d{2}:\d{2} (\w+)\s+(.*)$")
 
@@ -24,17 +26,27 @@ class Job:
     last: str | None = None
     downloaded: int = 0
     items: int | None = None
+    listed: int = 0
     errors: int = 0
     issue: str | None = None
 
 
+@dataclass(frozen=True)
+class Scan:
+    catalog: Catalog
+    time: str
+    limit: int | None
+    complete: bool
+    unmeasured: int = 0
+
+
 class Jobs:
-    def __init__(self, archive: Path, cache: Path):
-        self.archive = archive
+    def __init__(self, cache: Path):
         self.cache = cache
         self.lock = Lock()
         self.jobs: dict[str, Job] = {}
-        self.scans: dict[str, dict | None] = {}
+        self.scans: dict[str, Scan | None] = {}
+        self.usage: dict[str, dict | None] = {}
 
     def start(self, account: str, action: str, limit: int | None) -> None:
         with self.lock:
@@ -45,7 +57,7 @@ class Jobs:
             env = dict(os.environ, ICLOUD_USERNAME=account, ICLOUD_RECENT=str(limit or ""),
                        CLOUDEXTRACTOR_PROGRESS="1", PYTHONUNBUFFERED="1")
             process = subprocess.Popen(
-                [sys.executable, "-m", "cloudextractor", action],
+                [sys.executable, "-m", "cloudextractor", "inventory" if action == "scan" else action],
                 env=env, stdin=subprocess.DEVNULL, stdout=subprocess.PIPE,
                 stderr=subprocess.STDOUT, text=True, errors="replace", start_new_session=True,
             )
@@ -88,7 +100,7 @@ class Jobs:
             except subprocess.TimeoutExpired:
                 self._force_stop(job)
 
-    def snapshot(self, account: str) -> tuple[dict, dict | None]:
+    def snapshot(self, account: str) -> tuple[dict, Scan | None, dict | None]:
         with self.lock:
             job = self.jobs.get(account)
             status = {"status": "idle", "downloaded": 0, "errors": 0}
@@ -96,34 +108,54 @@ class Jobs:
                 status = {key: value for key, value in vars(job).items() if key != "process"}
             if account not in self.scans:
                 try:
-                    self.scans[account] = json.loads(self._scan_file(account).read_text())
-                except (FileNotFoundError, ValueError):
+                    data = json.loads(self._scan_file(account).read_text())
+                    self.scans[account] = self._load_scan(data)
+                except (FileNotFoundError, KeyError, TypeError, ValueError):
                     self.scans[account] = None
-            return status, self.scans[account]
+            if account not in self.usage:
+                try:
+                    self.usage[account] = json.loads(self._usage_file(account).read_text())
+                except (FileNotFoundError, ValueError):
+                    self.usage[account] = None
+            return status, self.scans[account], self.usage[account]
 
     def _scan_file(self, account: str) -> Path:
         return self.cache / f"{account}.json"
 
-    def _save_scan(self, account: str, job: Job, paths: set[str]) -> None:
-        scan = {
-            "paths": sorted(paths, reverse=True), "limit": job.limit,
-            "time": datetime.now(timezone.utc).isoformat(),
-        }
+    def _usage_file(self, account: str) -> Path:
+        return self.cache / f"{account}.usage.json"
+
+    @staticmethod
+    def _load_scan(data: dict) -> Scan:
+        complete = "files" in data
+        files = data["files"] if complete else dict.fromkeys(data["paths"])
+        return Scan(Catalog(files), data["time"], data.get("limit"), complete, data.get("unmeasured", 0))
+
+    def _write_snapshot(self, file: Path, values: dict) -> dict:
+        snapshot = {**values, "time": datetime.now(timezone.utc).isoformat()}
         with NamedTemporaryFile(mode="w", dir=self.cache, delete=False) as output:
-            json.dump(scan, output)
-        os.replace(output.name, self._scan_file(account))
-        self.scans[account] = scan
+            json.dump(snapshot, output)
+        os.replace(output.name, file)
+        return snapshot
 
     def _collect(self, account: str, job: Job) -> None:
-        paths = set()
-        prefix = f"{self.archive / account}/"
+        inventory = None
         with job.process.stdout as stdout:
             for line in stdout:
                 line = line.rstrip("\r\n")
-                if job.action == "scan" and line.startswith(prefix):
-                    relative = line.removeprefix(prefix)
-                    if relative and ".." not in Path(relative).parts:
-                        paths.add(relative)
+                if job.action == "scan" and line.startswith('{"files":'):
+                    try:
+                        inventory = json.loads(line)
+                    except ValueError:
+                        continue
+                elif job.action == "scan" and line.startswith('{"usage":'):
+                    try:
+                        size = json.loads(line)["usage"]
+                        if type(size) is int and size >= 0:
+                            with self.lock:
+                                self.usage[account] = self._write_snapshot(self._usage_file(account), {"bytes": size})
+                    except (ValueError, OSError):
+                        continue
                 elif line.startswith("CloudExtractor:") or LOG_LINE.match(line):
                     with self.lock:
                         self._progress(job, line)
@@ -133,12 +165,13 @@ class Jobs:
             job.current = None
             if job.status == "stopping":
                 job.status = "stopped"
-            elif code or job.errors:
+            elif code or job.errors or (job.action == "scan" and inventory is None):
                 job.status = "failed"
             else:
                 try:
                     if job.action == "scan":
-                        self._save_scan(account, job, paths)
+                        scan = self._write_snapshot(self._scan_file(account), inventory)
+                        self.scans[account] = self._load_scan(scan)
                     job.status = "finished"
                 except OSError:
                     job.status = "failed"
@@ -165,3 +198,5 @@ class Jobs:
             job.current = None
         if level == "INFO" and (total := re.match(r"Downloading (\d+) .* photos and videos to ", message)):
             job.items = int(total.group(1))
+        if level == "INFO" and (inventory := re.fullmatch(r"Inventory (\d+)/(\d+)", message)):
+            job.listed, job.items = map(int, inventory.groups())

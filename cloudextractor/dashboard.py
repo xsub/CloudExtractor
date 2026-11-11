@@ -10,6 +10,7 @@ from PIL import Image
 from waitress import serve as serve_http
 
 from cloudextractor.adapters.icloud import account_name
+from cloudextractor.catalog import Catalog
 from cloudextractor.dashboard_jobs import Jobs
 from cloudextractor.dashboard_media import Gallery, VIDEOS, jpeg_preview
 
@@ -25,7 +26,7 @@ def create_app(archive: Path, state: Path) -> Flask:
     if cache.is_symlink():
         raise ValueError("Use a real dashboard state directory.")
     cache.mkdir(mode=0o700, exist_ok=True)
-    jobs = Jobs(archive, cache)
+    jobs = Jobs(cache)
     gallery = Gallery(archive)
     app.extensions["cloudextractor_jobs"] = jobs
     configured_limit = os.environ.get("ICLOUD_RECENT", "").strip()
@@ -78,18 +79,42 @@ def create_app(archive: Path, state: Path) -> Flask:
     @app.get("/api/state")
     def status():
         account = selected_account(request.args.get("account", ""))
-        job, scan = jobs.snapshot(account)
+        job, scan, usage = jobs.snapshot(account)
         ready = archive_ready()
-        downloaded, present = gallery.items(account, job["status"] in ACTIVE) if ready else ([], set())
-        pending = [path for path in scan["paths"] if path not in present] if scan and ready else []
+        media = request.args.get("media", "both")
+        if media not in ("image", "video", "both"):
+            abort(400)
+        folder = request.args.get("folder", "")
+        local = gallery.items(account, job["status"] in ACTIVE) if ready else None
+        cloud = scan.catalog if scan and scan.complete else None
+        downloaded = local.filtered(media, folder) if local else []
+        pending = [path for path in scan.catalog.filtered(media, folder) if path not in local.files] if scan and local else []
         view = request.args.get("view", "downloaded")
         paths = pending if view == "pending" else downloaded
+        catalog = scan.catalog if view == "pending" and scan else local
         page = max(1, request.args.get("page", default=1, type=int))
         start = (page - 1) * PAGE_SIZE
+        visible = paths[start:start + PAGE_SIZE]
+        local_folders = local.folders if local else {}
+        cloud_folders = cloud.folders if cloud else {}
+        cloud_summary = cloud.summary(media, folder) if cloud else None
+        if usage:
+            cloud_summary = {"bytes": usage["bytes"], "filtered": cloud_summary["filtered"] if cloud_summary else None,
+                             "reported_at": usage["time"]}
         return jsonify(
             job=job, ready=ready, downloaded=len(downloaded), pending=len(pending) if scan and ready else None,
-            scan={"time": scan["time"], "limit": scan["limit"]} if scan else None,
-            paths=paths[start:start + PAGE_SIZE], page_size=PAGE_SIZE, total=len(paths),
+            scan={"time": scan.time, "limit": scan.limit, "unmeasured": scan.unmeasured, "complete": scan.complete} if scan else None,
+            local=local.summary(media, folder) if local else None,
+            cloud=cloud_summary,
+            folders=[
+                {"name": name,
+                 "local": Catalog.filtered_size(local_folders.get(name, {}), media) if local else None,
+                 "cloud": Catalog.filtered_size(cloud_folders.get(name, {}), media) if cloud else None}
+                for name in sorted(local_folders.keys() | cloud_folders.keys(), reverse=True)
+            ],
+            paths=visible, page_size=PAGE_SIZE, total=len(paths),
+            sizes={path: catalog.files[path] for path in visible},
+            types={path: catalog.types[path] for path in visible},
         )
 
     @app.post("/api/jobs")
@@ -105,6 +130,8 @@ def create_app(archive: Path, state: Path) -> Flask:
         try:
             if action == "stop":
                 jobs.stop(account)
+            elif action == "scan":
+                jobs.start(account, action, None)
             elif archive_ready():
                 jobs.start(account, action, limit)
             else:

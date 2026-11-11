@@ -1,6 +1,7 @@
 import os
 from pathlib import Path
 import re
+import sys
 
 
 def account_name(value: str) -> str:
@@ -49,6 +50,9 @@ def prepare(action: str, archive: Path, state: Path) -> tuple[Path, Path, list[s
         "--file-match-policy", "name-id7",
         "--folder-structure", "{:%Y/%m}",
     ])
+    if action == "inventory":
+        return archive, state, [sys.executable, "-m", "cloudextractor.adapters.icloud_inventory", *args[1:]]
+
     recent = os.environ.get("ICLOUD_RECENT", "").strip()
     if recent:
         if not recent.isascii() or not recent.isdecimal() or int(recent) < 1:

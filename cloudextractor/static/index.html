@@ -46,6 +46,40 @@
         <h2 id="library-heading">Biblioteka</h2>
         <p id="scope"></p>
       </div>
+      <div class="storage-summary" aria-label="Łączne rozmiary biblioteki">
+        <div class="storage-card">
+          <span>iCloud Photos · razem</span>
+          <strong id="cloud-total">—</strong>
+          <p id="cloud-scope"></p>
+          <p id="cloud-filtered" hidden></p>
+        </div>
+        <div class="storage-card">
+          <span>Lokalne archiwum · razem</span>
+          <strong id="local-total">—</strong>
+          <p id="local-filtered" hidden></p>
+        </div>
+      </div>
+      <div class="filters">
+        <label>Typ pliku
+          <select id="media-filter">
+            <option value="both">Obrazy i filmy</option>
+            <option value="image">Obrazy</option>
+            <option value="video">Filmy</option>
+          </select>
+        </label>
+        <label>Katalog
+          <select id="folder-filter"><option value="">Wszystkie katalogi</option></select>
+        </label>
+      </div>
+      <details class="folder-summary">
+        <summary>Rozmiary katalogów</summary>
+        <div class="folder-table">
+          <table aria-label="Rozmiary katalogów dla wybranego typu plików">
+            <thead><tr><th scope="col">Katalog</th><th scope="col">iCloud</th><th scope="col">Lokalnie</th></tr></thead>
+            <tbody id="folder-sizes"></tbody>
+          </table>
+        </div>
+      </details>
       <div class="tabs" role="tablist" aria-label="Widok biblioteki">
         <button id="tab-downloaded" role="tab" aria-controls="items" aria-selected="true" data-view="downloaded">Pobrane <span id="downloaded-count">—</span></button>
         <button id="tab-pending" role="tab" aria-controls="items" aria-selected="false" data-view="pending">Do pobrania <span id="pending-count">—</span></button>

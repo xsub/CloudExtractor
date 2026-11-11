@@ -82,7 +82,9 @@ ssh -N -L 8765:127.0.0.1:8765 host-linux
 
 Otwórz [panel CloudExtractor](http://127.0.0.1:8765). Jeśli ustawisz inny port przez `CLOUDEXTRACTOR_UI_PORT` w `.env`, użyj go w poleceniu tunelu i adresie panelu. Panel wybiera Apple ID spośród kont skonfigurowanych lub zalogowanych przez `auth`. Domyślny zakres panelu to `ICLOUD_RECENT` lub 20 pozycji. Opcja „Cała biblioteka” uruchamia pełny przebieg.
 
-„Uruchom”, „Zatrzymaj” i „Wznów” sterują przebiegami uruchomionymi z panelu. „Skanuj iCloud” odświeża listę brakujących plików w wybranym zakresie bez pobierania mediów. Galeria wczytuje miniatury ze wskazanego katalogu konta. Dwuklik otwiera pełnoekranowy podgląd. Odtwarzanie oryginalnych filmów zależy od obsługi formatu przez przeglądarkę.
+„Uruchom”, „Zatrzymaj” i „Wznów” sterują przebiegami uruchomionymi z panelu. „Skanuj iCloud” odczytuje metadane całej głównej biblioteki konta i odświeża rozmiar oraz listę braków. Zakres próbny dotyczy pobierania. Galeria wczytuje miniatury ze wskazanego katalogu konta. Dwuklik otwiera pełnoekranowy podgląd. Odtwarzanie oryginalnych filmów zależy od obsługi formatu przez przeglądarkę.
+
+Panel pokazuje dwa łączne rozmiary dla wybranego Apple ID. Apple raportuje miejsce zajęte przez Zdjęcia iCloud. Szczegółowy skan liczy pliki dostępne dla eksportu, w tym części wideo Live Photos i warianty RAW+JPEG. Suma lokalna obejmuje pliki w archiwum, także częściowe pobrania. Filtry typu i katalogu pokazują podsumowania wybranych plików obok obu sum. W tabeli katalogów rozmiary są grupowane według ścieżek archiwum `rok/miesiąc`.
 
 ## Adaptery
 

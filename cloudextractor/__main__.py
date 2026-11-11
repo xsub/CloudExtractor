@@ -42,7 +42,7 @@ def check_archive(root: Path, archive: Path) -> None:
 
 def main() -> int:
     parser = argparse.ArgumentParser(description="Archive cloud photos on a mounted share.")
-    parser.add_argument("action", nargs="?", choices=("run", "auth", "check", "scan", "ui"), default="run")
+    parser.add_argument("action", nargs="?", choices=("run", "auth", "check", "scan", "inventory", "ui"), default="run")
     args = parser.parse_args()
 
     source = os.environ.get("CLOUDEXTRACTOR_SOURCE", "icloud")
@@ -61,7 +61,7 @@ def main() -> int:
             raise ValueError("Run authentication from an interactive terminal.")
 
         archive, state, command = ADAPTERS[source](args.action, ARCHIVE, STATE)
-        if args.action != "auth":
+        if args.action not in ("auth", "inventory"):
             check_archive(ARCHIVE, archive)
         create_directory(state)
         check_state(state)
@@ -76,7 +76,7 @@ def main() -> int:
             except BlockingIOError as error:
                 raise ValueError("CloudExtractor is already using this state directory.") from error
 
-            if args.action in ("run", "scan"):
+            if args.action != "auth":
                 with open(os.devnull, "rb") as empty_input:
                     os.dup2(empty_input.fileno(), sys.stdin.fileno())
 

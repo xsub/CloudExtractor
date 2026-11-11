@@ -1,11 +1,13 @@
 const element = (id) => document.getElementById(id);
 const account = element("account");
 const limit = element("limit");
+const mediaFilter = element("media-filter");
+const folderFilter = element("folder-filter");
 const gallery = element("items");
 const viewer = element("viewer");
 const number = new Intl.NumberFormat("pl-PL");
 const date = new Intl.DateTimeFormat("pl-PL", { dateStyle: "short", timeStyle: "short" });
-const videos = new Set(["mov", "mp4", "m4v", "webm", "avi", "mts", "3gp", "mpeg", "mpg"]);
+const decimal = new Intl.NumberFormat("pl-PL", { maximumFractionDigits: 2 });
 const labels = {
   idle: "Gotowy", running: "Pobieranie", scanning: "Skanowanie", stopping: "Zatrzymywanie",
   stopped: "Zatrzymano", finished: "Zakończono", failed: "Błąd",
@@ -21,12 +23,29 @@ let view = "downloaded";
 let page = 1;
 let snapshot;
 let fingerprint;
+let folderFingerprint;
 let requestId = 0;
 let sending = false;
 let defaultLimit = 20;
 
 function suffix(path) {
   return path.split(".").pop().toLowerCase();
+}
+
+function bytes(size) {
+  if (size === null || size === undefined) return "—";
+  const units = ["B", "KB", "MB", "GB", "TB"];
+  let unit = 0;
+  while (size >= 1000 && unit < units.length - 1) {
+    size /= 1000;
+    unit += 1;
+  }
+  return `${decimal.format(size)} ${units[unit]}`;
+}
+
+function setBytes(target, size, minimum = false) {
+  target.textContent = `${minimum && size !== null && size !== undefined ? "≥ " : ""}${bytes(size)}`;
+  target.title = size === null || size === undefined ? "" : `${number.format(size)} B`;
 }
 
 function mediaUrl(path, kind) {
@@ -51,11 +70,12 @@ function showError(message) {
 function updateControls() {
   const status = snapshot?.job.status;
   const active = ["running", "scanning", "stopping"].includes(status);
-  const canStart = !sending && !active && snapshot?.ready && account.value;
+  const canWork = !sending && !active && snapshot && account.value;
+  const canStart = canWork && snapshot.ready;
   limit.disabled = !canStart;
   element("run").disabled = !canStart;
   element("run").textContent = status === "stopped" && snapshot.job.action === "run" ? "Wznów" : "Uruchom";
-  element("scan").disabled = !canStart;
+  element("scan").disabled = !canWork;
   element("stop").disabled = sending || !["running", "scanning"].includes(status);
 }
 
@@ -68,7 +88,10 @@ function showActivity(data) {
 
   let detail = "Wybierz zakres i uruchom pobieranie lub skan iCloud.";
   if (!ready) detail = "Sprawdź montowanie katalogu archiwum.";
-  else if (job.status === "scanning") detail = "Odczytywanie listy brakujących plików.";
+  else if (job.status === "scanning") {
+    detail = "Odczytywanie rozmiarów z iCloud.";
+    if (job.items) detail += ` · ${number.format(job.listed)} / ${number.format(job.items)} pozycji`;
+  }
   else if (job.status === "stopping") detail = "Zatrzymywanie procesu.";
   else if (job.status === "failed") detail = problems[job.issue] || "Proces zakończył się błędem. Sprawdź sesję iCloud.";
   else if (job.action === "run") {
@@ -82,14 +105,63 @@ function showActivity(data) {
   element("activity").textContent = detail;
   element("downloaded-count").textContent = number.format(data.downloaded);
   element("pending-count").textContent = data.pending === null ? "—" : number.format(data.pending);
-  const scope = scan?.limit ? `${number.format(scan.limit)} ostatnich pozycji` : "cała biblioteka";
-  element("scope").textContent = view === "downloaded" && data.downloaded ? "Dwuklik otwiera podgląd"
-    : view === "pending" && scan ? `Skan ${date.format(new Date(scan.time))} · ${scope}` : "";
+  element("scope").textContent = view === "downloaded" && data.downloaded ? "Dwuklik otwiera podgląd" : "";
 }
 
-function showPreview(path) {
+function showStorage(data) {
+  const filtered = mediaFilter.value !== "both" || folderFilter.value;
+  for (const [key, metrics] of [["cloud", data.cloud], ["local", data.local]]) {
+    setBytes(element(`${key}-total`), metrics?.bytes, key === "cloud" && !metrics?.reported_at && data.scan?.unmeasured > 0);
+    const info = element(`${key}-filtered`);
+    info.hidden = !metrics || (!filtered && (metrics.filtered === null || metrics.bytes === metrics.filtered));
+    const label = filtered ? "Wybrane" : key === "cloud" && metrics?.reported_at ? "Dostępne do eksportu" : "Obrazy i filmy";
+    if (metrics) info.textContent = `${label}: ${bytes(metrics.filtered)}`;
+  }
+  const scope = element("cloud-scope");
+  const details = [];
+  if (data.cloud?.reported_at) details.push(`Zajęte miejsce wg Apple · ${date.format(new Date(data.cloud.reported_at))}`);
+  if (data.scan?.complete) details.push(`Skan biblioteki głównej ${date.format(new Date(data.scan.time))}`);
+  else if (data.job.status === "scanning") details.push("Trwa odczyt rozmiarów plików i katalogów");
+  else details.push("Użyj „Skanuj iCloud”, aby odczytać rozmiary plików i katalogów");
+  if (data.scan?.unmeasured) details.push(`Brak rozmiaru: ${number.format(data.scan.unmeasured)} pozycji`);
+  scope.textContent = details.join(" · ");
+
+  const signature = JSON.stringify(data.folders);
+  if (signature === folderFingerprint) return;
+  folderFingerprint = signature;
+  const selected = folderFilter.value;
+  folderFilter.replaceChildren(new Option("Wszystkie katalogi", ""));
+  const rows = [];
+  for (const folder of data.folders) {
+    const name = folder.name === "." ? "Katalog główny" : folder.name;
+    folderFilter.add(new Option(name, folder.name));
+    const row = document.createElement("tr");
+    const nameCell = document.createElement("td");
+    const pick = document.createElement("button");
+    pick.textContent = name;
+    pick.addEventListener("click", () => {
+      folderFilter.value = folder.name;
+      page = 1;
+      refresh();
+    });
+    nameCell.append(pick);
+    const cloud = document.createElement("td");
+    const local = document.createElement("td");
+    setBytes(cloud, folder.cloud);
+    setBytes(local, folder.local);
+    row.append(nameCell, cloud, local);
+    rows.push(row);
+  }
+  if (selected && !data.folders.some((folder) => folder.name === selected)) {
+    folderFilter.add(new Option(selected, selected));
+  }
+  folderFilter.value = selected;
+  element("folder-sizes").replaceChildren(...rows);
+}
+
+function showPreview(path, kind) {
   if (viewer.open) return;
-  const video = videos.has(suffix(path));
+  const video = kind === "video";
   const content = document.createElement(video ? "video" : "img");
   const name = path.split("/").pop();
   if (video) {
@@ -112,12 +184,13 @@ function showPreview(path) {
   viewer.requestFullscreen?.().catch(() => {});
 }
 
-function renderAsset(path) {
+function renderAsset(path, size, kind) {
   const asset = document.createElement("button");
   const thumb = document.createElement("span");
   const image = document.createElement("img");
   const type = document.createElement("span");
   const name = document.createElement("span");
+  const fileSize = document.createElement("span");
   asset.className = "asset";
   asset.type = "button";
   asset.setAttribute("aria-pressed", "false");
@@ -131,31 +204,35 @@ function renderAsset(path) {
   type.textContent = suffix(path).toUpperCase();
   name.className = "asset-name";
   name.textContent = path.split("/").pop();
+  fileSize.className = "asset-size";
+  setBytes(fileSize, size);
   thumb.append(image, type);
-  asset.append(thumb, name);
+  asset.append(thumb, name, fileSize);
   asset.addEventListener("click", (event) => {
     if (event.detail === 0) {
-      showPreview(path);
+      showPreview(path, kind);
       return;
     }
     gallery.querySelector('[aria-pressed="true"]')?.setAttribute("aria-pressed", "false");
     asset.setAttribute("aria-pressed", "true");
   });
-  asset.addEventListener("dblclick", () => showPreview(path));
+  asset.addEventListener("dblclick", () => showPreview(path, kind));
   asset.addEventListener("pointerup", (event) => {
-    if (event.pointerType === "touch") showPreview(path);
+    if (event.pointerType === "touch") showPreview(path, kind);
   });
   return asset;
 }
 
-function renderPending(path) {
+function renderPending(path, size) {
   const row = document.createElement("div");
   const name = document.createElement("span");
   const date = document.createElement("span");
+  const fileSize = document.createElement("span");
   row.className = "pending-row";
   name.textContent = path.split("/").pop();
   date.textContent = path.split("/").slice(0, -1).join("/");
-  row.append(name, date);
+  setBytes(fileSize, size);
+  row.append(name, date, fileSize);
   return row;
 }
 
@@ -171,13 +248,14 @@ function showItems(data) {
   element("next").disabled = page === pages;
   element("page").textContent = `${number.format(page)} / ${number.format(pages)}`;
 
-  const key = JSON.stringify([account.value, view, page, data.paths, data.pending === null, data.ready]);
+  const key = JSON.stringify([account.value, view, page, data.paths, data.sizes, data.pending === null, data.ready]);
   if (fingerprint === key) return;
   fingerprint = key;
   gallery.classList.toggle("pending", view === "pending");
   gallery.setAttribute("aria-labelledby", `tab-${view}`);
   if (data.paths.length) {
-    gallery.replaceChildren(...data.paths.map(view === "pending" ? renderPending : renderAsset));
+    const render = view === "pending" ? renderPending : renderAsset;
+    gallery.replaceChildren(...data.paths.map((path) => render(path, data.sizes[path], data.types[path])));
   } else {
     const empty = document.createElement("p");
     empty.className = "empty";
@@ -192,11 +270,12 @@ async function refresh() {
   if (!account.value) return;
   const current = ++requestId;
   try {
-    const data = await getJson(`/api/state?${new URLSearchParams({ account: account.value, view, page })}`);
+    const data = await getJson(`/api/state?${new URLSearchParams({ account: account.value, view, page, media: mediaFilter.value, folder: folderFilter.value })}`);
     if (current !== requestId) return;
-    if (!snapshot && data.job.action) selectLimit(data.job.limit);
+    if (!snapshot && data.job.action === "run") selectLimit(data.job.limit);
     snapshot = data;
     showActivity(data);
+    showStorage(data);
     showItems(data);
   } catch (error) {
     if (current !== requestId) return;
@@ -240,11 +319,15 @@ document.addEventListener("fullscreenchange", () => {
 account.addEventListener("change", () => {
   page = 1;
   snapshot = undefined;
+  folderFilter.value = "";
   selectLimit(defaultLimit);
   showError("");
   updateControls();
   refresh();
 });
+for (const filter of [mediaFilter, folderFilter]) {
+  filter.addEventListener("change", () => { page = 1; refresh(); });
+}
 const tabs = [...document.querySelectorAll("[data-view]")];
 for (const tab of tabs) {
   tab.addEventListener("click", () => {
