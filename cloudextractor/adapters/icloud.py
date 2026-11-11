@@ -3,12 +3,18 @@ from pathlib import Path
 import re
 
 
-def prepare(action: str, archive: Path, state: Path) -> tuple[Path, Path, list[str]]:
-    username = os.environ.get("ICLOUD_USERNAME", "").strip().lower()
-    if action == "check" and not username:
-        return archive, state, []
+def account_name(value: str) -> str:
+    username = value.strip().lower()
     if username.startswith("-") or not re.fullmatch(r"[^@/\\\s\x00-\x1f\x7f]+@[^@/\\\s\x00-\x1f\x7f]+", username):
         raise ValueError("Set ICLOUD_USERNAME to an Apple Account email usable as a directory name.")
+    return username
+
+
+def prepare(action: str, archive: Path, state: Path) -> tuple[Path, Path, list[str]]:
+    configured_account = os.environ.get("ICLOUD_USERNAME", "")
+    if action == "check" and not configured_account.strip():
+        return archive, state, []
+    username = account_name(configured_account)
 
     archive = archive / username
     state = state / username
@@ -22,7 +28,7 @@ def prepare(action: str, archive: Path, state: Path) -> tuple[Path, Path, list[s
     # The parameter provider without a password uses only the saved session.
     args = [
         "icloudpd",
-        "--log-level", "info",
+        "--log-level", "debug" if action == "run" and os.environ.get("CLOUDEXTRACTOR_PROGRESS") == "1" else "info",
         "--password-provider", "console" if action == "auth" else "parameter",
         "--username", username,
         "--cookie-directory", str(state),
@@ -31,6 +37,8 @@ def prepare(action: str, archive: Path, state: Path) -> tuple[Path, Path, list[s
         args.append("--adp-web-access")
     if action == "auth":
         return archive, state, [*args, "--auth-only"]
+    if action == "scan":
+        args.append("--only-print-filenames")
 
     args.extend([
         "--directory", str(archive),

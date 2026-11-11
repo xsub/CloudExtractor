@@ -1,0 +1,167 @@
+from dataclasses import dataclass
+from datetime import datetime, timezone
+import json
+import os
+from pathlib import Path
+import re
+import signal
+import subprocess
+import sys
+from tempfile import NamedTemporaryFile
+from threading import Lock, Thread, Timer
+
+
+LOG_LINE = re.compile(r"^\d{4}-\d{2}-\d{2} \d{2}:\d{2}:\d{2} (\w+)\s+(.*)$")
+
+
+@dataclass
+class Job:
+    process: subprocess.Popen[str]
+    action: str
+    limit: int | None
+    status: str
+    current: str | None = None
+    last: str | None = None
+    downloaded: int = 0
+    items: int | None = None
+    errors: int = 0
+    issue: str | None = None
+
+
+class Jobs:
+    def __init__(self, archive: Path, cache: Path):
+        self.archive = archive
+        self.cache = cache
+        self.lock = Lock()
+        self.jobs: dict[str, Job] = {}
+        self.scans: dict[str, dict | None] = {}
+
+    def start(self, account: str, action: str, limit: int | None) -> None:
+        with self.lock:
+            previous = self.jobs.get(account)
+            if previous and previous.status in ("running", "scanning", "stopping"):
+                raise ValueError("Dla tego konta trwa już operacja.")
+
+            env = dict(os.environ, ICLOUD_USERNAME=account, ICLOUD_RECENT=str(limit or ""),
+                       CLOUDEXTRACTOR_PROGRESS="1", PYTHONUNBUFFERED="1")
+            process = subprocess.Popen(
+                [sys.executable, "-m", "cloudextractor", action],
+                env=env, stdin=subprocess.DEVNULL, stdout=subprocess.PIPE,
+                stderr=subprocess.STDOUT, text=True, errors="replace", start_new_session=True,
+            )
+            job = Job(process, action, limit, "running" if action == "run" else "scanning")
+            self.jobs[account] = job
+            Thread(target=self._collect, args=(account, job), daemon=True).start()
+
+    def stop(self, account: str) -> None:
+        with self.lock:
+            job = self.jobs.get(account)
+            if not job or job.status not in ("running", "scanning") or job.process.poll() is not None:
+                raise ValueError("Dla tego konta nie ma aktywnej operacji panelu.")
+            job.status = "stopping"
+            self._signal(job, signal.SIGTERM)
+            timer = Timer(8, self._force_stop, args=(job,))
+            timer.daemon = True
+            timer.start()
+
+    def _signal(self, job: Job, signum: signal.Signals) -> None:
+        if job.process.poll() is None:
+            try:
+                os.killpg(job.process.pid, signum)
+            except ProcessLookupError:
+                pass
+
+    def _force_stop(self, job: Job) -> None:
+        with self.lock:
+            if job.status == "stopping":
+                self._signal(job, signal.SIGKILL)
+
+    def shutdown(self) -> None:
+        with self.lock:
+            active = [job for job in self.jobs.values() if job.process.poll() is None]
+            for job in active:
+                job.status = "stopping"
+                self._signal(job, signal.SIGTERM)
+        for job in active:
+            try:
+                job.process.wait(timeout=1)
+            except subprocess.TimeoutExpired:
+                self._force_stop(job)
+
+    def snapshot(self, account: str) -> tuple[dict, dict | None]:
+        with self.lock:
+            job = self.jobs.get(account)
+            status = {"status": "idle", "downloaded": 0, "errors": 0}
+            if job:
+                status = {key: value for key, value in vars(job).items() if key != "process"}
+            if account not in self.scans:
+                try:
+                    self.scans[account] = json.loads(self._scan_file(account).read_text())
+                except (FileNotFoundError, ValueError):
+                    self.scans[account] = None
+            return status, self.scans[account]
+
+    def _scan_file(self, account: str) -> Path:
+        return self.cache / f"{account}.json"
+
+    def _save_scan(self, account: str, job: Job, paths: set[str]) -> None:
+        scan = {
+            "paths": sorted(paths, reverse=True), "limit": job.limit,
+            "time": datetime.now(timezone.utc).isoformat(),
+        }
+        with NamedTemporaryFile(mode="w", dir=self.cache, delete=False) as output:
+            json.dump(scan, output)
+        os.replace(output.name, self._scan_file(account))
+        self.scans[account] = scan
+
+    def _collect(self, account: str, job: Job) -> None:
+        paths = set()
+        prefix = f"{self.archive / account}/"
+        with job.process.stdout as stdout:
+            for line in stdout:
+                line = line.rstrip("\r\n")
+                if job.action == "scan" and line.startswith(prefix):
+                    relative = line.removeprefix(prefix)
+                    if relative and ".." not in Path(relative).parts:
+                        paths.add(relative)
+                elif line.startswith("CloudExtractor:") or LOG_LINE.match(line):
+                    with self.lock:
+                        self._progress(job, line)
+
+        code = job.process.wait()
+        with self.lock:
+            job.current = None
+            if job.status == "stopping":
+                job.status = "stopped"
+            elif code or job.errors:
+                job.status = "failed"
+            else:
+                try:
+                    if job.action == "scan":
+                        self._save_scan(account, job, paths)
+                    job.status = "finished"
+                except OSError:
+                    job.status = "failed"
+                    job.issue = "cache"
+
+    @staticmethod
+    def _progress(job: Job, line: str) -> None:
+        match = LOG_LINE.match(line)
+        level, message = match.groups() if match else ("ERROR", line)
+        if "saved session is missing or no longer valid" in message or "authentication is required" in message:
+            job.issue = "auth"
+        elif "already using this state directory" in message:
+            job.issue = "busy"
+        elif message.startswith("CloudExtractor:"):
+            job.issue = "configuration"
+
+        if level in ("ERROR", "CRITICAL"):
+            job.errors += 1
+        if level == "DEBUG" and message.startswith("Downloading /"):
+            job.current = Path(message.removeprefix("Downloading ").removesuffix("...")).name
+        if level == "INFO" and message.startswith("Downloaded /"):
+            job.downloaded += 1
+            job.last = Path(message.removeprefix("Downloaded ")).name
+            job.current = None
+        if level == "INFO" and (total := re.match(r"Downloading (\d+) .* photos and videos to ", message)):
+            job.items = int(total.group(1))

@@ -1,0 +1,70 @@
+<!doctype html>
+<html lang="pl">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>CloudExtractor</title>
+  <link rel="stylesheet" href="/static/app.css">
+  <script src="/static/app.js" defer></script>
+</head>
+<body>
+  <header class="top">
+    <div class="top-inner">
+      <a class="brand" href="/">Cloud<span>Extractor</span></a>
+      <label class="account">Apple ID <select id="account" disabled></select></label>
+    </div>
+  </header>
+
+  <main>
+    <section class="control" aria-labelledby="control-heading">
+      <div class="control-heading">
+        <h1 id="control-heading">Pobieranie iCloud</h1>
+        <span id="status" class="status" role="status">Łączenie</span>
+      </div>
+      <div class="progress" id="progress" hidden></div>
+      <p class="activity" id="activity" aria-live="polite"></p>
+      <div class="controls">
+        <label class="limit">Zakres
+          <select id="limit" disabled>
+            <option value="20">20 ostatnich pozycji</option>
+            <option value="50">50 ostatnich pozycji</option>
+            <option value="100">100 ostatnich pozycji</option>
+            <option value="500">500 ostatnich pozycji</option>
+            <option value="">Cała biblioteka</option>
+          </select>
+        </label>
+        <button class="primary" id="run" disabled>Uruchom</button>
+        <button id="stop" class="stop" disabled>Zatrzymaj</button>
+        <button id="scan" disabled>Skanuj iCloud</button>
+      </div>
+      <p id="error" role="alert" hidden></p>
+    </section>
+
+    <section class="library" aria-labelledby="library-heading">
+      <div class="library-heading">
+        <h2 id="library-heading">Biblioteka</h2>
+        <p id="scope"></p>
+      </div>
+      <div class="tabs" role="tablist" aria-label="Widok biblioteki">
+        <button id="tab-downloaded" role="tab" aria-controls="items" aria-selected="true" data-view="downloaded">Pobrane <span id="downloaded-count">—</span></button>
+        <button id="tab-pending" role="tab" aria-controls="items" aria-selected="false" data-view="pending">Do pobrania <span id="pending-count">—</span></button>
+      </div>
+      <div id="items" role="tabpanel" aria-labelledby="tab-downloaded" class="gallery"></div>
+      <nav id="pagination" class="pagination" aria-label="Strony plików" hidden>
+        <button id="previous" aria-label="Poprzednia strona">←</button>
+        <span id="page"></span>
+        <button id="next" aria-label="Następna strona">→</button>
+      </nav>
+    </section>
+  </main>
+
+  <dialog id="viewer" aria-labelledby="filename">
+    <header class="viewer-header">
+      <div id="filename"></div>
+      <a id="original" download>Oryginał</a>
+      <button id="close-viewer" aria-label="Zamknij podgląd">×</button>
+    </header>
+    <div id="preview" class="preview"></div>
+  </dialog>
+</body>
+</html>

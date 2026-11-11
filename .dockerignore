@@ -2,3 +2,5 @@
 !Dockerfile
 !cloudextractor/
 !cloudextractor/**/*.py
+!cloudextractor/static/
+!cloudextractor/static/*

@@ -70,6 +70,18 @@ ICLOUD_USERNAME=drugie-konto@example.com ICLOUD_RECENT=20 docker compose run --r
 
 Przy aktualizacji z wersji jednokontowej zatrzymaj kontener i przenieś katalogi lat oraz pliki sesji do podkatalogu dotychczasowego Apple ID w ich katalogach nadrzędnych. Znacznik `.cloudextractor-archive` pozostaje w katalogu głównym archiwum.
 
+## Panel pobierania i galerii
+
+Na hoście Linuksa uruchom `docker compose up -d --build ui` z katalogu instalacji. Na laptopie otwórz tunel, podstawiając adres lub alias SSH hosta:
+
+```sh
+ssh -N -L 8765:127.0.0.1:8765 host-linux
+```
+
+Otwórz [panel CloudExtractor](http://127.0.0.1:8765). Jeśli ustawisz inny port przez `CLOUDEXTRACTOR_UI_PORT` w `.env`, użyj go w poleceniu tunelu i adresie panelu. Panel wybiera Apple ID spośród kont skonfigurowanych lub zalogowanych przez `auth`. Domyślny zakres panelu to `ICLOUD_RECENT` lub 20 pozycji. Opcja „Cała biblioteka” uruchamia pełny przebieg.
+
+„Uruchom”, „Zatrzymaj” i „Wznów” sterują przebiegami uruchomionymi z panelu. „Skanuj iCloud” odświeża listę brakujących plików w wybranym zakresie bez pobierania mediów. Galeria wczytuje miniatury ze wskazanego katalogu konta. Dwuklik otwiera pełnoekranowy podgląd. Odtwarzanie oryginalnych filmów zależy od obsługi formatu przez przeglądarkę.
+
 ## Adaptery
 
 Moduły źródeł są w `cloudextractor/adapters/`. Każdy adapter wyznacza katalogi archiwum i stanu oraz argumenty procesu dla `run` i `auth`. Polecenie główne wybiera adapter przez `CLOUDEXTRACTOR_SOURCE`, sprawdza archiwum, blokuje równoległe użycie tego samego stanu i przekazuje kod zakończenia procesu. Import z Google Takeout może użyć tej samej obsługi katalogu docelowego i własnej konfiguracji wejścia.
