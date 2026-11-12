@@ -258,7 +258,11 @@ function showJobStats(job) {
   const active = ["running", "scanning", "stopping"].includes(job?.status);
   const run = job?.action === "run";
   const limited = run && job.limit != null;
-  element("progress").dataset.active = String(active);
+  const progress = element("progress");
+  const transferring = job?.status === "running" && Boolean(job.current);
+  const checking = active && job.status !== "stopping" && job.listed > 0 && job.items > 0;
+  progress.dataset.mode = transferring ? "transfer" : checking ? "checking" : "idle";
+  progress.style.setProperty("--listing-progress", checking ? `${Math.min(100, 100 * job.listed / job.items)}%` : "0%");
   element("job-workers").textContent = job ? t(`${Number(active)} z 1`, `${Number(active)} of 1`) : "—";
   element("job-downloaded").textContent = run ? number.format(job.downloaded) : "—";
   element("job-list-label").textContent = limited ? t("Lista do sprawdzenia", "Items to check") : t("Biblioteka iCloud", "iCloud library");
@@ -290,7 +294,10 @@ function showActivity(data) {
   const { job, ready } = data;
   const status = element("status");
   status.dataset.state = ready ? job.status : "failed";
-  status.textContent = ready ? labels[job.status] : t("Archiwum niedostępne", "Archive unavailable");
+  if (!ready) status.textContent = t("Archiwum niedostępne", "Archive unavailable");
+  else if (job.status === "running" && !job.current) status.textContent = job.items == null
+    ? t("Łączenie", "Connecting") : t("Sprawdzanie", "Checking");
+  else status.textContent = labels[job.status];
   showJobStats(job);
   let detail = t("Wybierz zakres i uruchom pobieranie. Wcześniejszy skan nie jest potrzebny.", "Choose a range and start the download. You can download without scanning first.");
   if (!ready) detail = t("Sprawdź montowanie katalogu archiwum.", "Check the archive mount.");
@@ -307,9 +314,13 @@ function showActivity(data) {
     if (job.limit || job.date_range) detail += t(" Możesz wybrać inny zakres.", " You can choose another range.");
   }
   else if (job.status === "running") {
-    if (job.items == null) detail = t("Łączenie z iCloud.", "Connecting to iCloud.");
-    else if (job.date_range) detail = t("Sprawdzanie dat w bibliotece i pobieranie braków z wybranego zakresu.", "Checking library dates and downloading missing files in the selected range.");
-    else detail = t("Sprawdzanie i pobieranie brakujących plików.", "Checking for and downloading missing files.");
+    if (job.current) detail = t("Trwa pobieranie pliku.", "Downloading a file.");
+    else if (job.items == null) detail = t("Łączenie z iCloud.", "Connecting to iCloud.");
+    else if (job.listed > 0) {
+      const checked = number.format(job.listed);
+      const total = itemCount(job.items);
+      detail = t(`Sprawdzono ${checked} z ${total}.`, `Checked ${checked} of ${total}.`);
+    } else detail = t("Worker sprawdza listę iCloud. Obecnie nie przesyła pliku.", "The worker is checking the iCloud list. No file is currently transferring.");
   } else if (job.status === "finished") detail = job.action === "run" ? t("Pobieranie zakończone.", "Download finished.")
     : t("Skan zakończony. Lista braków jest dostępna w zakładce Do pobrania.", "Scan finished. See missing files in the Pending tab.");
   else if (job.status === "stopped") detail = t("Możesz ponownie uruchomić skan lub pobieranie.", "You can start another scan or download.");

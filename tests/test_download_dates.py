@@ -5,17 +5,31 @@ from pathlib import Path
 from tempfile import TemporaryDirectory
 from types import SimpleNamespace
 import unittest
-from unittest.mock import patch
+from unittest.mock import Mock, patch
 
 from icloudpd.base import where_builder
 from icloudpd.cli import parse
 
 from cloudextractor.adapters.icloud import prepare
 from cloudextractor.dashboard import create_app
+from cloudextractor.dashboard_jobs import Job, Jobs
 from cloudextractor.download_dates import DateRange
 
 
 class DownloadDatesTest(unittest.TestCase):
+    def test_listing_progress_is_separate_from_file_transfers(self):
+        job = Job(Mock(), "run", None, "running")
+        Jobs._progress(job, "2026-11-12 02:00:00 DEBUG    Downloading /archive/file.jpg...")
+        self.assertEqual(job.current, "file.jpg")
+        Jobs._progress(job, "CloudExtractor listing 50/100")
+        self.assertIsNone(job.current)
+        self.assertEqual((job.listed, job.items, job.downloaded), (50, 100, 0))
+
+        Jobs._progress(job, "2026-11-12 02:00:01 INFO     Downloaded /archive/next.jpg")
+        Jobs._progress(job, "CloudExtractor listing 51/100")
+        self.assertEqual((job.listed, job.items, job.downloaded), (51, 100, 1))
+        self.assertEqual(job.last, "next.jpg")
+
     def test_icloud_downloads_the_entire_selected_day_across_dst(self):
         dates = DateRange("2026-03-29", "2026-03-29", "Europe/Warsaw")
         with patch.dict(os.environ, {"ICLOUD_USERNAME": "test@example.com", "ICLOUD_RECENT": "20"}, clear=True):

@@ -80,8 +80,10 @@ h2 { font-size: 1.35rem; }
 .stop { color: #ad312a; }
 .error { margin: 16px 0 0; color: #a72921; font-size: .88rem; }
 .progress { visibility: hidden; overflow: hidden; height: 3px; background: #e8f0ff; margin-top: 13px; border-radius: 3px; }
-.progress[data-active="true"] { visibility: visible; }
-.progress[data-active="true"]::before { content: ""; display: block; height: 100%; width: 30%; background: var(--accent); animation: slide 1.5s infinite ease-in-out; }
+.progress[data-mode="transfer"], .progress[data-mode="checking"] { visibility: visible; }
+.progress[data-mode="transfer"]::before, .progress[data-mode="checking"]::before { content: ""; display: block; height: 100%; background: var(--accent); }
+.progress[data-mode="transfer"]::before { width: 30%; animation: slide 1.5s infinite ease-in-out; }
+.progress[data-mode="checking"]::before { width: var(--listing-progress); }
 @keyframes slide { from { transform: translateX(-100%); } to { transform: translateX(335%); } }
 
 .library { margin-top: 20px; overflow: hidden; }
@@ -226,4 +228,4 @@ button.calendar-day[aria-current="date"] { border-color: var(--accent); }
   .folder-summary { margin-inline: 13px; }
   .library-heading { align-items: flex-start; }
 }
-@media (prefers-reduced-motion: reduce) { .progress[data-active="true"]::before { animation: none; } }
+@media (prefers-reduced-motion: reduce) { .progress[data-mode="transfer"]::before { animation: none; } }

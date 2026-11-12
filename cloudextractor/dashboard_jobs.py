@@ -15,6 +15,7 @@ from cloudextractor.download_dates import DateRange
 
 
 LOG_LINE = re.compile(r"^\d{4}-\d{2}-\d{2} \d{2}:\d{2}:\d{2} (\w+)\s+(.*)$")
+LISTING_LINE = re.compile(r"CloudExtractor listing (\d+)/(\d+)\s*")
 
 
 @dataclass
@@ -59,6 +60,9 @@ class Jobs:
 
             env = dict(os.environ, ICLOUD_USERNAME=account, ICLOUD_RECENT=str(limit or ""),
                        CLOUDEXTRACTOR_PROGRESS="1", PYTHONUNBUFFERED="1")
+            if action == "run":
+                env.update(FORCE_TQDM="1", TQDM_BAR_FORMAT="CloudExtractor listing {n}/{total}\n",
+                           TQDM_MININTERVAL="1")
             command = [sys.executable, "-m", "cloudextractor", "inventory" if action == "scan" else action]
             if date_range is not None:
                 command.extend(["--date-from", date_range.start, "--date-to", date_range.end,
@@ -173,7 +177,7 @@ class Jobs:
                                 self.usage[account] = self._write_snapshot(self._usage_file(account), {"bytes": size})
                     except (ValueError, OSError):
                         continue
-                elif line.startswith("CloudExtractor:") or LOG_LINE.match(line):
+                elif line.startswith(("CloudExtractor:", "CloudExtractor listing ")) or LOG_LINE.match(line):
                     with self.lock:
                         self._progress(job, line)
 
@@ -196,6 +200,14 @@ class Jobs:
 
     @staticmethod
     def _progress(job: Job, line: str) -> None:
+        if line.startswith("CloudExtractor listing "):
+            if job.action == "run" and (listing := LISTING_LINE.fullmatch(line)):
+                listed, total = map(int, listing.groups())
+                if listed > job.listed:
+                    job.current = None
+                job.listed, job.items = listed, total
+            return
+
         match = LOG_LINE.match(line)
         level, message = match.groups() if match else ("ERROR", line)
         if "saved session is missing or no longer valid" in message or "authentication is required" in message:
