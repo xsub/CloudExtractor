@@ -1,6 +1,11 @@
-# CloudExtractor
+<img src="docs/brand/cloudextractor.png" alt="Logo CloudExtractor" width="96" height="96">
+
+# CloudExtractor — Zdjęcia iCloud na Twoim NAS-ie
 
 [![CI](https://github.com/xsub/CloudExtractor/actions/workflows/ci.yml/badge.svg?branch=main&event=push)](https://github.com/xsub/CloudExtractor/actions/workflows/ci.yml)
+[![Docker na Linuksie](https://img.shields.io/badge/Docker-Linux-2496ED?logo=docker&logoColor=white)](#konfiguracja-na-linuksie)
+[![Python 3.13](https://img.shields.io/badge/Python-3.13-3776AB?logo=python&logoColor=white)](Dockerfile)
+[![Ostatni commit](https://img.shields.io/github/last-commit/xsub/CloudExtractor?logo=github)](https://github.com/xsub/CloudExtractor/commits/main/)
 
 [English documentation](README.md)
 
