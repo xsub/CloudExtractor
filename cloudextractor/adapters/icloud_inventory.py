@@ -110,8 +110,8 @@ def main() -> int:
     except PyiCloudFailedLoginException:
         LOGGER.error("iCloud authentication is required")
         return 1
-    except Exception:
-        LOGGER.error("Could not complete the iCloud inventory")
+    except Exception as error:
+        LOGGER.error("Could not complete the iCloud inventory (%s): %s", type(error).__name__, error)
         return 1
     print(json.dumps(result, separators=(",", ":")))
     return 0

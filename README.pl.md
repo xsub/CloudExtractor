@@ -91,6 +91,8 @@ Wybierz zakres i kliknij „Uruchom pobieranie”. Wcześniejszy skan nie jest p
 
 Panel pokazuje liczbę aktywnych workerów dla wybranego konta, pliki pobrane w danym przebiegu i zakres zadania. Przy pobieraniu według dat worker znajduje wybrany okres w indeksie dat wykonania iCloud i liczy pozycje z tego okresu.
 
+Panel pokazuje ostatni błąd workera i zapisuje błędy w `/state/.dashboard/worker-errors.log` w kontenerze. Na hoście plik znajdziesz w `STATE_HOST_PATH/.dashboard/`.
+
 Panel pokazuje dwa łączne rozmiary dla wybranego Apple ID. Apple raportuje miejsce zajęte przez Zdjęcia iCloud. Szczegółowy skan liczy pliki dostępne dla eksportu, w tym części wideo Live Photos i warianty RAW+JPEG. Suma lokalna obejmuje pliki w archiwum, także częściowe pobrania. Filtry typu i katalogu pokazują podsumowania wybranych plików obok obu sum. W tabeli katalogów rozmiary są grupowane według ścieżek archiwum `rok/miesiąc`.
 
 Kolumna „Lokalnie / iCloud” porównuje rozmiary w wierszu dla wybranego typu pliku. Kliknij prawym przyciskiem na wierszu miesiąca albo użyj przycisku „⋯”, aby pobrać zdjęcia i filmy z całego miesiąca według dat wykonania w UTC. Aby pobrać kilka miesięcy, zaznacz ich wiersze i wybierz **Pobierz zaznaczone**. Jedno konto może wykonywać jedno zadanie naraz.

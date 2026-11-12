@@ -91,6 +91,8 @@ Choose the scope and click **Start download**. A download can start without a sc
 
 The dashboard shows the active worker count for the selected account, the number of files downloaded in the current run, and the job scope. For a download by date, the worker finds the selected period in iCloud's capture date index and counts the items in that period.
 
+The dashboard shows the latest worker error and records errors in `/state/.dashboard/worker-errors.log` inside the container. On the host this file is under `STATE_HOST_PATH/.dashboard/`.
+
 The dashboard shows total iCloud and local archive sizes for the selected Apple ID. Apple reports storage used by iCloud Photos. The detailed scan counts files available to export, including Live Photo video components and RAW+JPEG variants. The local total includes partial downloads. File type and folder filters show subtotals alongside both overall totals. The folder table groups storage by `year/month`.
 
 The **Local / iCloud** column compares the two sizes for the selected file type. Right-click a month row or use **⋯**, then choose **Download month** to download photos and videos by capture date for that full month in UTC. To download several months, check their rows and choose **Download selected**. Each account can run one job at a time.

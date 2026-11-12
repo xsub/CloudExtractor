@@ -1,4 +1,5 @@
-from datetime import datetime, timedelta
+from datetime import datetime, timedelta, timezone
+from io import StringIO
 import logging
 import os
 from pathlib import Path
@@ -11,7 +12,7 @@ from icloudpd.base import where_builder
 from icloudpd.cli import parse
 
 from cloudextractor.adapters.icloud import prepare
-from cloudextractor.adapters.icloud_download import month_bounds, rank_windows, window_assets
+from cloudextractor.adapters.icloud_download import download_library, month_bounds, rank_windows, window_assets
 from cloudextractor.dashboard import create_app
 from cloudextractor.dashboard_jobs import Job, Jobs
 from cloudextractor.download_dates import DateRange
@@ -70,6 +71,81 @@ class DownloadDatesTest(unittest.TestCase):
         Jobs._progress(job, "CloudExtractor listing 51/100")
         self.assertEqual((job.listed, job.items, job.downloaded), (51, 100, 1))
         self.assertEqual(job.last, "next.jpg")
+
+    def test_download_rechecks_the_selected_dates_when_the_library_changes(self):
+        class Album:
+            page_size = 100
+            offset = 0
+
+            def __init__(self):
+                self.dates = [5, 3, 2, 1]
+
+            def __len__(self):
+                return len(self.dates)
+
+            def photos_request(self):
+                captured = datetime(2026, 1, self.dates[self.offset], tzinfo=timezone.utc)
+                fields = {"assetDate": {"value": int(captured.timestamp() * 1000)}}
+                return SimpleNamespace(json=lambda: {"records": [{"recordType": "CPLAsset", "fields": fields}]})
+
+            def __iter__(self):
+                while self.offset < len(self.dates):
+                    day = self.dates[self.offset]
+                    yield SimpleNamespace(created=datetime(2026, 1, day, tzinfo=timezone.utc), has_asset_date=True,
+                                          _asset_record={"recordName": str(day)})
+                    self.offset += 1
+
+        bounds = [DateRange("2026-01-02", "2026-01-04", "UTC").utc_bounds()]
+        _, (config,) = parse(["--username", "test@example.com", "--directory", "/archive"])
+        for mutation, fails in ((lambda dates: dates.insert(0, 6), False),
+                                (lambda dates: dates.pop(0), False),
+                                (lambda dates: dates.pop(), False),
+                                (lambda dates: dates.insert(1, 4), True)):
+            with self.subTest(fails=fails, mutation=mutation):
+                album = Album()
+                client = SimpleNamespace(photos=SimpleNamespace(all=album))
+                saved = []
+
+                def save(_client, asset, *_args):
+                    saved.append(asset.created.day)
+                    if len(saved) == 1:
+                        mutation(album.dates)
+                    return True
+
+                with patch("cloudextractor.adapters.icloud_download.build_filename_with_policies", return_value="asset.jpg"), \
+                     patch("cloudextractor.adapters.icloud_download.asset_versions", return_value=[("asset.jpg", "original", None)]), \
+                     patch("cloudextractor.adapters.icloud_download.Archive") as archive:
+                    archive.return_value.save.side_effect = save
+                    if fails:
+                        with self.assertRaisesRegex(ValueError, "Selected iCloud date range changed"):
+                            download_library(client, config, bounds, False)
+                    else:
+                        self.assertEqual(download_library(client, config, bounds, False), 0)
+                        self.assertEqual(saved, [3, 2])
+
+    def test_worker_error_is_written_to_disk_and_reported_by_the_job_api(self):
+        account = "test@example.com"
+        with TemporaryDirectory() as temporary, patch.dict(os.environ, {"ICLOUD_USERNAME": account}):
+            root = Path(temporary)
+            app = create_app(root, root)
+            jobs = app.extensions["cloudextractor_jobs"]
+            process = Mock()
+            process.stdout = StringIO(
+                "2026-11-12 02:00:00 ERROR    HTTP 503 at https://example.test/private?token=secret\n"
+            )
+            process.wait.return_value = 1
+            job = Job(process, "run", None, "running")
+            jobs.jobs[account] = job
+            jobs._collect(account, job)
+
+            response = app.test_client().get("/api/jobs", query_string={"account": account})
+            status = response.json["job"]
+            self.assertEqual((status["status"], status["errors"]), ("failed", 1))
+            self.assertEqual(status["error_detail"], "HTTP 503 at [redacted]")
+            log = (root / ".dashboard" / "worker-errors.log").read_text()
+            self.assertIn(f"{account} [run] {status['error_detail']}", log)
+            self.assertNotIn("secret", log)
+            jobs.shutdown()
 
     def test_icloud_downloads_the_entire_selected_day_across_dst(self):
         dates = DateRange("2026-03-29", "2026-03-29", "Europe/Warsaw")

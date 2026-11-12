@@ -324,6 +324,11 @@ function showJobStats(job) {
   const file = element("job-file");
   file.textContent = filename || "—";
   file.title = filename;
+
+  const error = element("job-error");
+  const message = job?.error_detail || "";
+  if (error.textContent !== message) error.textContent = message;
+  error.hidden = !message;
 }
 
 function showActivity(data) {
@@ -340,7 +345,7 @@ function showActivity(data) {
   else if (job.status === "scanning") detail = job.items == null ? t("Łączenie z iCloud przed skanem.", "Connecting to iCloud for the scan.")
     : t("Odczytywanie biblioteki iCloud.", "Reading the iCloud library.");
   else if (job.status === "stopping") detail = t("Zatrzymywanie procesu.", "Stopping the worker.");
-  else if (job.status === "failed") detail = problems[job.issue] || t("Proces zakończył się błędem. Sprawdź sesję iCloud.", "The worker failed. Check your iCloud session.");
+  else if (job.status === "failed") detail = problems[job.issue] || t("Zadanie zakończyło się błędem.", "The job ended with an error.");
   else if (job.status === "finished" && job.action === "run" && !job.downloaded) {
     detail = t("Brak nowych plików w tym zakresie.", "No new files in this range.");
     if (job.limit || job.date_range || job.months?.length) detail += t(" Możesz wybrać inny zakres.", " You can choose another range.");

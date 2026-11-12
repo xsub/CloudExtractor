@@ -1,6 +1,8 @@
 from dataclasses import asdict, dataclass
 from datetime import datetime, timezone
 import json
+import logging
+from logging.handlers import RotatingFileHandler
 import os
 from pathlib import Path
 import re
@@ -16,6 +18,10 @@ from cloudextractor.download_dates import DateRange
 
 LOG_LINE = re.compile(r"^\d{4}-\d{2}-\d{2} \d{2}:\d{2}:\d{2} (\w+)\s+(.*)$")
 LISTING_LINE = re.compile(r"CloudExtractor listing (\d+)/(\d+)\s*")
+EXCEPTION_LINE = re.compile(r"^[\w.]*(?:Error|Exception)(?:: .*)?$")
+PRIVATE_URL = re.compile(r"https?://[^\s'\"<>]+|(?<=\?)[^\s'\"<>]+", re.IGNORECASE)
+PRIVATE_VALUE = re.compile(r"\b(?:password|token|cookie|authorization|session[_-]?id)\s*[:=].*",
+                           re.IGNORECASE)
 
 
 @dataclass
@@ -33,6 +39,7 @@ class Job:
     listed: int = 0
     errors: int = 0
     issue: str | None = None
+    error_detail: str | None = None
     match_size: bool = False
 
 
@@ -53,6 +60,11 @@ class Jobs:
         self.jobs: dict[str, Job] = {}
         self.scans: dict[str, Scan | None] = {}
         self.usage: dict[str, dict | None] = {}
+        self.error_log = logging.Logger("cloudextractor.worker_errors")
+        handler = RotatingFileHandler(cache / "worker-errors.log", maxBytes=256 * 1024,
+                                      backupCount=2, encoding="utf-8", delay=True)
+        handler.setFormatter(logging.Formatter("%(asctime)s %(levelname)s %(message)s"))
+        self.error_log.addHandler(handler)
 
     def start(
         self, account: str, action: str, limit: int | None, date_range: DateRange | None = None,
@@ -120,6 +132,8 @@ class Jobs:
                 job.process.wait(timeout=1)
             except subprocess.TimeoutExpired:
                 self._force_stop(job)
+        for handler in self.error_log.handlers:
+            handler.close()
 
     def _status(self, account: str) -> dict:
         job = self.jobs.get(account)
@@ -170,6 +184,7 @@ class Jobs:
 
     def _collect(self, account: str, job: Job) -> None:
         inventory = None
+        exception = None
         with job.process.stdout as stdout:
             for line in stdout:
                 line = line.rstrip("\r\n")
@@ -188,7 +203,10 @@ class Jobs:
                         continue
                 elif line.startswith(("CloudExtractor:", "CloudExtractor listing ")) or LOG_LINE.match(line):
                     with self.lock:
-                        self._progress(job, line)
+                        if (message := self._progress(job, line)) is not None:
+                            self._record_error(account, job, message)
+                elif EXCEPTION_LINE.fullmatch(line):
+                    exception = line
 
         code = job.process.wait()
         with self.lock:
@@ -197,25 +215,41 @@ class Jobs:
                 job.status = "stopped"
             elif code or job.errors or (job.action == "scan" and inventory is None):
                 job.status = "failed"
+                if code < 0:
+                    self._record_error(account, job, f"Worker terminated by signal {-code}.")
+                elif code and exception:
+                    self._record_error(account, job, exception)
+                elif not job.error_detail:
+                    message = f"Worker exited with code {code}." if code else "iCloud scan returned no inventory."
+                    self._record_error(account, job, message)
             else:
                 try:
                     if job.action == "scan":
                         scan = self._write_snapshot(self._scan_file(account), inventory)
                         self.scans[account] = self._load_scan(scan)
                     job.status = "finished"
-                except OSError:
+                except OSError as error:
                     job.status = "failed"
                     job.issue = "cache"
+                    self._record_error(account, job, f"Could not save scan results: {error}")
+
+    def _record_error(self, account: str, job: Job, message: str) -> None:
+        detail = " ".join(message.split())
+        detail = PRIVATE_URL.sub("[redacted]", detail)
+        detail = PRIVATE_VALUE.sub("[redacted]", detail)
+        job.error_detail = detail[:1200] or "Worker reported an error without details."
+        job.errors += 1
+        self.error_log.error("%s [%s] %s", account, job.action, job.error_detail)
 
     @staticmethod
-    def _progress(job: Job, line: str) -> None:
+    def _progress(job: Job, line: str) -> str | None:
         if line.startswith("CloudExtractor listing "):
             if job.action == "run" and (listing := LISTING_LINE.fullmatch(line)):
                 listed, total = map(int, listing.groups())
                 if listed > job.listed:
                     job.current = None
                 job.listed, job.items = listed, total
-            return
+            return None
 
         match = LOG_LINE.match(line)
         level, message = match.groups() if match else ("ERROR", line)
@@ -227,7 +261,7 @@ class Jobs:
             job.issue = "configuration"
 
         if level in ("ERROR", "CRITICAL"):
-            job.errors += 1
+            return message
         if level == "DEBUG" and message.startswith("Downloading /"):
             job.current = Path(message.removeprefix("Downloading ").removesuffix("...")).name
         if level == "INFO" and message.startswith("Downloaded /"):
@@ -238,3 +272,4 @@ class Jobs:
             job.items = int(total.group(1))
         if level == "INFO" and (inventory := re.fullmatch(r"Inventory (\d+)/(\d+)", message)):
             job.listed, job.items = map(int, inventory.groups())
+        return None

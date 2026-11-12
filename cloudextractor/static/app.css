@@ -81,6 +81,7 @@ h2 { font-size: 1.35rem; }
 .primary { background: var(--accent); border-color: var(--accent); color: #fff; }
 .stop { color: #ad312a; }
 .error { margin: 16px 0 0; color: #a72921; font-size: .88rem; }
+.job-error { margin: 0 0 8px; overflow-wrap: anywhere; }
 .job-progress { margin-top: 12px; }
 .job-progress-caption { display: flex; justify-content: space-between; gap: 8px; color: var(--muted); font-size: .8rem; margin-bottom: 5px; }
 #job-progress-count { font-weight: 650; color: #17223a; white-space: nowrap; }
