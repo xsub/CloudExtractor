@@ -41,6 +41,13 @@ def group_interval() -> int:
     return interval
 
 
+def media_filter() -> str:
+    media = request.args.get("media", "both")
+    if media not in ("image", "video", "both"):
+        abort(400)
+    return media
+
+
 def capture_bounds(start: str, end: str, *, calendar: bool = False) -> tuple[float, float, ZoneInfo]:
     timezone = request.args.get("timezone", "UTC")
     try:
@@ -133,9 +140,7 @@ def create_app(archive: Path, state: Path) -> Flask:
         account = selected_account(request.args.get("account", ""))
         job, scan, usage = jobs.snapshot(account)
         ready = archive_ready()
-        media = request.args.get("media", "both")
-        if media not in ("image", "video", "both"):
-            abort(400)
+        media = media_filter()
         folder = request.args.get("folder", "")
         local = gallery.items(account, job["status"] in ACTIVE) if ready else None
         cloud = scan.catalog if scan and scan.complete else None
@@ -155,7 +160,7 @@ def create_app(archive: Path, state: Path) -> Flask:
         sort, descending = sorting()
         groups = {}
         group_sizes = {}
-        if interval and view == "downloaded" and media != "video" and local:
+        if interval and view == "downloaded" and local:
             paths, groups = local.grouped(paths, interval)
             group_sizes = {path: sum(local.files[member] for member in members) for path, members in groups.items()}
         if sort and catalog:
@@ -196,7 +201,7 @@ def create_app(archive: Path, state: Path) -> Flask:
         folder = request.args.get("folder", "")
         job, _, _ = jobs.snapshot(account)
         local = gallery.items(account, job["status"] in ACTIVE)
-        paths = filter_dates(local, local.filtered("image", folder))
+        paths = filter_dates(local, local.filtered(media_filter(), folder))
         _, groups = local.grouped(paths, interval)
         path = request.args.get("path", "")
         members = groups.get(path)

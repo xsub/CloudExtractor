@@ -56,21 +56,32 @@ class GalleryNavigationTest(unittest.TestCase):
         last = self.status(page=300, page_size=50)
         self.assertEqual((last["page"], len(last["paths"])), (3, 11))
 
-    def test_group_together_before_paging_and_keep_videos_separate(self):
+    def test_group_photos_and_videos_by_time_without_mixing_them(self):
         for name, timestamp in (("last.jpg", 1794438010), ("between.mov", 1794438008),
-                                ("first.heic", 1794438006), ("earlier.jpg", 1794438000)):
+                                ("first.heic", 1794438006), ("clip.mp4", 1794438004),
+                                ("earlier.jpg", 1794438000)):
             self.write(name, timestamp)
 
         data = self.status(group_interval=5)
-        self.assertEqual(data["downloaded"], 4)
+        self.assertEqual(data["downloaded"], 5)
         self.assertEqual(data["paths"], ["2026/11/last.jpg", "2026/11/between.mov", "2026/11/earlier.jpg"])
-        self.assertEqual(data["groups"], {"2026/11/last.jpg": {"count": 2, "bytes": 8}})
+        self.assertEqual(data["groups"], {
+            "2026/11/last.jpg": {"count": 2, "bytes": 8},
+            "2026/11/between.mov": {"count": 2, "bytes": 8},
+        })
         group = self.client.get("/api/group", query_string={
             "account": self.account, "path": "2026/11/last.jpg", "group_interval": 5,
         }).get_json()
         self.assertEqual(group["paths"], ["2026/11/last.jpg", "2026/11/first.heic"])
         self.assertEqual((group["newest"], group["oldest"]), (1794438010, 1794438006))
-        self.assertEqual(self.status(media="video", group_interval=5)["groups"], {})
+        videos = self.status(media="video", group_interval=5)
+        self.assertEqual(videos["paths"], ["2026/11/between.mov"])
+        self.assertEqual(videos["groups"], {"2026/11/between.mov": {"count": 2, "bytes": 8}})
+        group = self.client.get("/api/group", query_string={
+            "account": self.account, "path": "2026/11/between.mov", "group_interval": 5, "media": "video",
+        }).get_json()
+        self.assertEqual(group["paths"], ["2026/11/between.mov", "2026/11/clip.mp4"])
+        self.assertEqual((group["newest"], group["oldest"]), (1794438008, 1794438004))
         self.assertEqual(self.status(group_interval=2)["groups"], {})
 
     def test_calendar_counts_match_day_gallery_in_browser_timezone(self):

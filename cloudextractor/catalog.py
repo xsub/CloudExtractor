@@ -88,21 +88,23 @@ class Catalog:
         timeline = sorted(paths, key=lambda path: (self.timestamps.get(path, float("-inf")), path), reverse=True)
         covers = []
         groups = {}
-        previous = None
-        members = []
+        previous: dict[str, int] = {}
+        members: dict[str, list[str]] = {}
         for path in timeline:
             timestamp = self.timestamps.get(path)
-            if self.types[path] != "image" or timestamp is None or timestamp == 0:
+            kind = self.types[path]
+            if kind not in ("image", "video") or timestamp is None or timestamp == 0:
                 covers.append(path)
                 continue
 
-            if previous is not None and previous - timestamp <= interval:
-                members.append(path)
-                groups[members[0]] = members
+            if kind in previous and previous[kind] - timestamp <= interval:
+                group = members[kind]
+                group.append(path)
+                groups[group[0]] = group
             else:
                 covers.append(path)
-                members = [path]
-            previous = timestamp
+                members[kind] = [path]
+            previous[kind] = timestamp
         return covers, groups
 
     def summary(self, media: str, folder: str) -> dict[str, int]:

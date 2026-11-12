@@ -92,7 +92,7 @@ Panel pokazuje dwa łączne rozmiary dla wybranego Apple ID. Apple raportuje mie
 
 Kolumna „Lokalnie / iCloud” porównuje rozmiary w wierszu dla wybranego typu pliku. Kliknij prawym przyciskiem na wierszu miesiąca albo użyj przycisku „⋯”, aby pobrać zdjęcia i filmy z całego miesiąca według dat wykonania w UTC. Jedno konto może wykonywać jedno zadanie naraz.
 
-Wybierz 20, 50 lub 100 pozycji na stronę. Wpisz numer strony i naciśnij Enter albo „Przejdź”. W galerii pobranych zdjęć możesz włączyć grupowanie według odstępu 2, 5, 10, 30, 45, 60, 90 lub 180 sekund. CloudExtractor korzysta z czasu wykonania zapisanego przez `icloudpd` w dacie modyfikacji pliku. Po włączeniu grupowania każda seria zajmuje jeden kafel. Kliknij grupę, by zobaczyć jej zdjęcia, a następnie kliknij dowolną miniaturę, by otworzyć pełny ekran.
+Wybierz 20, 50 lub 100 pozycji na stronę. Wpisz numer strony i naciśnij Enter albo „Przejdź”. W galerii pobranych plików możesz włączyć grupowanie według odstępu 2, 5, 10, 30, 45, 60, 90 lub 180 sekund. Zdjęcia i filmy tworzą osobne grupy na podstawie czasu wykonania zapisanego przez `icloudpd` w dacie modyfikacji pliku. Każda seria zajmuje jeden kafel. Kliknij grupę, a potem miniaturę, by otworzyć podgląd zdjęcia lub odtwarzacz filmu.
 
 Wybierz widok „Kalendarz”, aby zobaczyć 1, 3, 6 lub 12 miesięcy. Każdy dzień pokazuje liczbę plików według daty wykonania w strefie przeglądarki (I — obrazy, V — filmy). Kliknij dzień, aby przejść do galerii z filtrem daty. W zakładce „Do pobrania” liczniki wymagają skanu iCloud zapisanego z datami.
 

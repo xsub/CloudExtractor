@@ -91,7 +91,7 @@ function galleryQuery() {
 }
 
 function groupingEnabled() {
-  return layout.value === "gallery" && view === "downloaded" && mediaFilter.value !== "video";
+  return layout.value === "gallery" && view === "downloaded";
 }
 
 function suffix(path) {
@@ -280,7 +280,7 @@ function showLibraryCounts(data) {
   element("downloaded-count").textContent = number.format(data.downloaded);
   element("pending-count").textContent = data.pending === null ? "—" : number.format(data.pending);
   element("scope").textContent = layout.value === "gallery" && view === "downloaded" && data.downloaded
-    ? groupingEnabled() && groupInterval.value !== "0" ? "Kliknij grupę, aby zobaczyć zdjęcia" : "Dwuklik otwiera podgląd"
+    ? groupingEnabled() && groupInterval.value !== "0" ? "Kliknij grupę, aby zobaczyć jej pliki" : "Dwuklik otwiera podgląd"
     : "";
 }
 
@@ -416,10 +416,11 @@ function renderAsset(path, size, kind, { open, count, timestamp } = {}) {
   thumb.append(image, type);
   if (count) {
     const badge = document.createElement("span");
+    const mediaLabel = kind === "video" ? "filmów" : "zdjęć";
     badge.className = "group-count";
     badge.textContent = `×${number.format(count)}`;
-    asset.setAttribute("aria-label", `Pokaż grupę zdjęć (${number.format(count)})`);
-    name.textContent = "Grupa zdjęć";
+    asset.setAttribute("aria-label", `Pokaż grupę ${mediaLabel} (${number.format(count)})`);
+    name.textContent = `Grupa ${mediaLabel}`;
     thumb.append(badge);
   }
   asset.append(thumb, name, metadata);
@@ -443,13 +444,14 @@ function renderAsset(path, size, kind, { open, count, timestamp } = {}) {
   return asset;
 }
 
-function openGroup(path) {
+function openGroup(path, kind) {
   openGroupRequest = {
-    account: account.value, path, folder: folderFilter.value,
+    account: account.value, path, media: kind, folder: folderFilter.value,
     group_interval: groupInterval.value, page_size: pageSize.value, page: 1,
     timezone: browserZone, ...galleryQuery(),
   };
   element("group-items").replaceChildren();
+  element("group-title").textContent = kind === "video" ? "Filmy w grupie" : "Zdjęcia w grupie";
   element("group-info").textContent = "Wczytywanie grupy…";
   element("group-more").hidden = true;
   groupViewer.showModal();
@@ -464,9 +466,11 @@ async function loadGroup() {
   try {
     const data = await getJson(`/api/group?${new URLSearchParams(request)}`);
     if (openGroupRequest !== request) return;
-    element("group-info").textContent = `Liczba zdjęć ${number.format(data.count)} · ${captureTime.formatRange(data.oldest * 1000, data.newest * 1000)}`;
-    element("group-items").append(...data.paths.map((path) => renderAsset(path, data.sizes[path], "image", {
-      open: () => showPreview(path, "image"),
+    const kind = request.media;
+    const mediaLabel = kind === "video" ? "filmów" : "zdjęć";
+    element("group-info").textContent = `Liczba ${mediaLabel} ${number.format(data.count)} · ${captureTime.formatRange(data.oldest * 1000, data.newest * 1000)}`;
+    element("group-items").append(...data.paths.map((path) => renderAsset(path, data.sizes[path], kind, {
+      open: () => showPreview(path, kind),
       timestamp: data.timestamps[path],
     })));
     request.page = data.page + 1;
@@ -521,11 +525,12 @@ function showItems(data) {
     gallery.replaceChildren(...data.paths.map((path) => {
       const timestamp = data.timestamps[path];
       if (view === "pending") return renderPending(path, data.sizes[path], timestamp);
+      const kind = data.types[path];
       const group = data.groups[path];
-      if (group) return renderAsset(path, group.bytes, data.types[path], {
-        timestamp, count: group.count, open: () => openGroup(path),
+      if (group) return renderAsset(path, group.bytes, kind, {
+        timestamp, count: group.count, open: () => openGroup(path, kind),
       });
-      return renderAsset(path, data.sizes[path], data.types[path], { timestamp });
+      return renderAsset(path, data.sizes[path], kind, { timestamp });
     }));
   } else if (galleryRange && datesUnavailable) {
     gallery.replaceChildren();
