@@ -8,7 +8,7 @@ from icloudpd.cli import parse
 from icloudpd.config import UserConfig
 from pyicloud_ipd.asset_version import calculate_version_filename
 from pyicloud_ipd.base import PyiCloudService
-from pyicloud_ipd.exceptions import PyiCloudFailedLoginException
+from pyicloud_ipd.exceptions import PyiCloudAPIResponseException, PyiCloudFailedLoginException
 from pyicloud_ipd.services.photos import PhotoAsset
 from pyicloud_ipd.utils import disambiguate_filenames
 from pyicloud_ipd.version_size import AssetVersionSize
@@ -16,6 +16,23 @@ from tzlocal import get_localzone
 
 
 LOGGER = logging.getLogger(__name__)
+
+
+class ICloudTermsRequired(RuntimeError):
+    pass
+
+
+class SavedICloudSession(PyiCloudService):
+    def _validate_token(self):
+        try:
+            return super()._validate_token()
+        except PyiCloudAPIResponseException as error:
+            if str(error.code) != "421" or not self.session_data.get("trust_token"):
+                raise
+            # Apple can reject the web cookies while still accepting the saved
+            # session and trust tokens at its account-login endpoint.
+            self._authenticate_with_token()
+            return self.data
 
 
 def asset_versions(asset: PhotoAsset, config: UserConfig, name: str):
@@ -43,9 +60,11 @@ def asset_files(asset: PhotoAsset, config: UserConfig) -> tuple[dict[str, int], 
 
 
 def connect(config: UserConfig) -> PyiCloudService:
-    client = PyiCloudService("com", config.username, lambda: None, cookie_directory=config.cookie_directory)
+    client = SavedICloudSession("com", config.username, lambda: None, cookie_directory=config.cookie_directory)
+    if client.data.get("termsUpdateNeeded") is True:
+        raise ICloudTermsRequired("Apple requires the updated iCloud terms to be accepted on iCloud.com for this Apple ID.")
     if client.requires_2fa or client.requires_2sa:
-        raise PyiCloudFailedLoginException("iCloud authentication is required")
+        raise PyiCloudFailedLoginException("The saved iCloud session needs two-factor verification.")
     if config.adp_web_access:
         client.request_pcs_consent("photos")
     return client
@@ -98,8 +117,13 @@ def inventory(client: PyiCloudService, config: UserConfig) -> dict:
 def main() -> int:
     logging.basicConfig(format="%(asctime)s %(levelname)-8s %(message)s", datefmt="%Y-%m-%d %H:%M:%S", level=logging.INFO)
     try:
-        _, (config,) = parse(sys.argv[1:])
+        args = sys.argv[1:]
+        verify_only = args[:1] == ["--verify-only"]
+        _, (config,) = parse(args[1:] if verify_only else args)
         client = connect(config)
+        if verify_only:
+            LOGGER.info("iCloud Photos is accessible (%d items).", len(client.photos.all))
+            return 0
         try:
             usage = storage_usage(client)
             if usage is not None:
@@ -107,8 +131,11 @@ def main() -> int:
         except Exception:
             LOGGER.warning("iCloud Photos storage usage is unavailable")
         result = inventory(client, config)
-    except PyiCloudFailedLoginException:
-        LOGGER.error("iCloud authentication is required")
+    except ICloudTermsRequired as error:
+        LOGGER.error("%s", error)
+        return 1
+    except PyiCloudFailedLoginException as error:
+        LOGGER.error("iCloud authentication is required: %s", error)
         return 1
     except Exception as error:
         LOGGER.error("Could not complete the iCloud inventory (%s): %s", type(error).__name__, error)

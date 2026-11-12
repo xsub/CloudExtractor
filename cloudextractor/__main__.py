@@ -43,7 +43,8 @@ def check_archive(root: Path, archive: Path) -> None:
 
 def main() -> int:
     parser = argparse.ArgumentParser(description="Archive cloud photos on a mounted share.")
-    parser.add_argument("action", nargs="?", choices=("run", "auth", "check", "scan", "inventory", "ui"), default="run")
+    parser.add_argument("action", nargs="?", choices=("run", "auth", "check", "verify", "scan", "inventory", "ui"),
+                        default="run")
     parser.add_argument("--date-from", help="First capture date to download (YYYY-MM-DD)")
     parser.add_argument("--date-to", help="Last capture date to download, inclusive (YYYY-MM-DD)")
     parser.add_argument("--date-zone", help="IANA time zone of the capture date range (default: UTC)")

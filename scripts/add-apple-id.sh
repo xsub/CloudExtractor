@@ -27,6 +27,6 @@ fi
 
 cd -- "$(dirname -- "${BASH_SOURCE[0]}")/.."
 docker compose run --rm --no-deps -e "ICLOUD_USERNAME=$apple_id" extractor auth
-docker compose run --rm --no-deps -T -e "ICLOUD_USERNAME=$apple_id" extractor check
+docker compose run --rm --no-deps -T -e "ICLOUD_USERNAME=$apple_id" extractor verify
 
 printf 'Reload the dashboard, select the Apple ID, and choose a download range.\n'

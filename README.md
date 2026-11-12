@@ -81,7 +81,7 @@ Each run uses the account specified in `ICLOUD_USERNAME`. Accounts have separate
 bash scripts/add-apple-id.sh
 ```
 
-Enter the Apple Account email, password, and 2FA code in the terminal. The script checks that the account's archive is writable. Reload the dashboard and select the new Apple ID. You can also download a sample from the terminal by substituting the account email below.
+Enter the Apple Account email, password, and 2FA code in the terminal. The script checks access to iCloud Photos and verifies that the account's archive is writable. If Apple requires updated terms, accept them on iCloud.com with that account. Reload the dashboard and select the new Apple ID. You can also download a sample from the terminal by substituting the account email below.
 
 ```sh
 ICLOUD_USERNAME=second-account@example.com ICLOUD_RECENT=20 docker compose run --rm -T extractor run

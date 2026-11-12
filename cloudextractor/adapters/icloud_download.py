@@ -13,7 +13,7 @@ from icloudpd.cli import parse
 from pyicloud_ipd.exceptions import PyiCloudFailedLoginException
 
 from cloudextractor.adapters.icloud_archive import Archive
-from cloudextractor.adapters.icloud_inventory import asset_versions, connect
+from cloudextractor.adapters.icloud_inventory import ICloudTermsRequired, asset_versions, connect
 from cloudextractor.download_dates import parse_months
 
 
@@ -198,8 +198,10 @@ def main(args: list[str]) -> int:
     logging.getLogger("urllib3").setLevel(logging.WARNING)
     try:
         return download_library(connect(config), config, bounds, progress, match_size=options.match_size)
-    except PyiCloudFailedLoginException:
-        LOGGER.error("iCloud authentication is required")
+    except ICloudTermsRequired as error:
+        LOGGER.error("%s", error)
+    except PyiCloudFailedLoginException as error:
+        LOGGER.error("iCloud authentication is required: %s", error)
     except Exception as error:
         LOGGER.error("iCloud download failed (%s): %s", type(error).__name__, error)
     return 1

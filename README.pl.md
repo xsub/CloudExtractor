@@ -81,7 +81,7 @@ Każde uruchomienie obsługuje konto wskazane w `ICLOUD_USERNAME`. Konta mają o
 bash scripts/add-apple-id.sh
 ```
 
-Podaj adres konta Apple, hasło i kod 2FA w terminalu. Skrypt sprawdzi dostęp do zapisu w katalogu archiwum tego konta. Odśwież panel i wybierz nowe Apple ID. Możesz też pobrać próbkę z terminala, podstawiając adres konta w poniższym poleceniu.
+Podaj adres konta Apple, hasło i kod 2FA w terminalu. Skrypt sprawdzi dostęp do Zdjęć iCloud i możliwość zapisu w archiwum tego konta. Jeśli Apple wymaga przyjęcia nowych warunków, zaakceptuj je na iCloud.com na tym koncie. Odśwież panel i wybierz nowe Apple ID. Możesz też pobrać próbkę z terminala, podstawiając adres konta w poniższym poleceniu.
 
 ```sh
 ICLOUD_USERNAME=drugie-konto@example.com ICLOUD_RECENT=20 docker compose run --rm -T extractor run

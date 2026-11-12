@@ -55,8 +55,9 @@ def prepare(
         "--file-match-policy", "name-id7",
         "--folder-structure", "{:%Y/%m}",
     ])
-    if action == "inventory":
-        return archive, state, [sys.executable, "-m", "cloudextractor.adapters.icloud_inventory", *args[1:]]
+    if action in ("inventory", "verify"):
+        verify = ["--verify-only"] if action == "verify" else []
+        return archive, state, [sys.executable, "-m", "cloudextractor.adapters.icloud_inventory", *verify, *args[1:]]
 
     if action == "run":
         args = [sys.executable, "-m", "cloudextractor.adapters.icloud_download", *args[1:]]

@@ -11,15 +11,43 @@ from unittest.mock import Mock, patch
 
 from icloudpd.cli import parse
 from pyicloud_ipd.asset_version import AssetVersion
+from pyicloud_ipd.base import PyiCloudService
+from pyicloud_ipd.exceptions import PyiCloudAPIResponseException
 from pyicloud_ipd.file_match import FileMatchPolicy
 from pyicloud_ipd.version_size import AssetVersionSize
 from requests import Response
 
 from cloudextractor.adapters.icloud import prepare
 from cloudextractor.adapters.icloud_archive import Archive, CHECKSUM_SALT
+from cloudextractor.adapters.icloud_inventory import ICloudTermsRequired, SavedICloudSession, connect
 
 
 class ICloudAppendTest(unittest.TestCase):
+    def test_restore_uses_saved_trust_token_when_web_cookies_are_rejected(self):
+        session = object.__new__(SavedICloudSession)
+        session.data = {"hsaTrustedBrowser": True}
+        expired = PyiCloudAPIResponseException("Authentication required for Account.", 421)
+        with patch.object(PyiCloudService, "_validate_token", side_effect=expired), \
+             patch.object(session, "_authenticate_with_token") as refresh:
+            session.session_data = {}
+            with self.assertRaises(PyiCloudAPIResponseException):
+                session._validate_token()
+            refresh.assert_not_called()
+
+            session.session_data["trust_token"] = "saved-token"
+            self.assertEqual(session._validate_token(), {"hsaTrustedBrowser": True})
+            refresh.assert_called_once_with()
+
+    def test_pending_icloud_terms_are_reported_before_accessing_photos(self):
+        config = SimpleNamespace(username="test@example.com", cookie_directory="/state/test@example.com",
+                                 adp_web_access=True)
+        with patch("cloudextractor.adapters.icloud_inventory.SavedICloudSession") as session:
+            client = session.return_value
+            client.data = {"termsUpdateNeeded": True}
+            with self.assertRaisesRegex(ICloudTermsRequired, "updated iCloud terms"):
+                connect(config)
+            client.request_pcs_consent.assert_not_called()
+
     def test_worker_options_keep_archived_files_and_cloud_library(self):
         for action, limit, progress in (
             ("run", "", ""),
