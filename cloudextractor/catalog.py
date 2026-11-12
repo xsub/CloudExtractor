@@ -1,5 +1,8 @@
 from collections import Counter, defaultdict
+from collections.abc import Iterator
+from datetime import datetime
 from posixpath import splitext
+from zoneinfo import ZoneInfo
 
 
 VIDEOS = {".mov", ".mp4", ".m4v", ".webm", ".avi", ".mts", ".m2ts", ".mkv", ".3gp", ".3g2", ".mpeg", ".mpg"}
@@ -41,6 +44,19 @@ class Catalog:
     def filtered(self, media: str, folder: str) -> list[str]:
         return [path for path in self.paths if matches_filter(self.types[path], media)
                 and (not folder or folder_name(path) == folder)]
+
+    def dated_paths(self, paths: list[str], start: float, end: float) -> Iterator[tuple[str, int]]:
+        for path in paths:
+            timestamp = self.timestamps.get(path)
+            if timestamp and start <= timestamp <= end:
+                yield path, timestamp
+
+    def daily_counts(self, paths: list[str], start: float, end: float, zone: ZoneInfo) -> dict[str, Counter[str]]:
+        days = defaultdict(Counter)
+        for path, timestamp in self.dated_paths(paths, start, end):
+            day = datetime.fromtimestamp(timestamp, zone).date().isoformat()
+            days[day][self.types[path]] += 1
+        return dict(days)
 
     def grouped(self, paths: list[str], interval: int) -> tuple[list[str], dict[str, list[str]]]:
         timeline = sorted(paths, key=lambda path: (self.timestamps.get(path, float("-inf")), path), reverse=True)

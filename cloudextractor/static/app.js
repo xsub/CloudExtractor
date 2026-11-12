@@ -1,3 +1,5 @@
+import { MediaCalendar } from "./calendar.js";
+
 const element = (id) => document.getElementById(id);
 const account = element("account");
 const limit = element("limit");
@@ -7,6 +9,8 @@ const datePresets = [...document.querySelectorAll("[data-days]")];
 const browserZone = Intl.DateTimeFormat().resolvedOptions().timeZone || "UTC";
 const mediaFilter = element("media-filter");
 const folderFilter = element("folder-filter");
+const layout = element("library-layout");
+const clearDay = element("clear-day");
 const pageSize = element("page-size");
 const pageNumber = element("page-number");
 const groupInterval = element("group-interval");
@@ -42,9 +46,33 @@ let sending = false;
 let dateZone = browserZone;
 let restoreScope = true;
 let openGroupRequest;
+let selectedDay = "";
+const mediaCalendar = new MediaCalendar(element("calendar-panel"), refresh, showDay);
+
+function updateLibraryLayout() {
+  const calendar = layout.value === "calendar";
+  element("gallery-tools").hidden = calendar;
+  gallery.hidden = calendar;
+  element("calendar-panel").hidden = !calendar;
+  clearDay.hidden = !selectedDay;
+  if (selectedDay) {
+    const label = calendarDate.format(new Date(selectedDay));
+    clearDay.textContent = `${label} ×`;
+    clearDay.setAttribute("aria-label", `Usuń filtr dnia: ${label}`);
+  }
+}
+
+function showDay(day) {
+  selectedDay = day;
+  layout.value = "gallery";
+  page = 1;
+  updateLibraryLayout();
+  clearDay.focus();
+  refresh();
+}
 
 function groupingEnabled() {
-  return view === "downloaded" && mediaFilter.value !== "video";
+  return layout.value === "gallery" && view === "downloaded" && mediaFilter.value !== "video";
 }
 
 function suffix(path) {
@@ -170,7 +198,7 @@ function showActivity(data) {
 function showLibraryCounts(data) {
   element("downloaded-count").textContent = number.format(data.downloaded);
   element("pending-count").textContent = data.pending === null ? "—" : number.format(data.pending);
-  element("scope").textContent = view === "downloaded" && data.downloaded
+  element("scope").textContent = layout.value === "gallery" && view === "downloaded" && data.downloaded
     ? groupingEnabled() && groupInterval.value !== "0" ? "Kliknij grupę, aby zobaczyć zdjęcia" : "Dwuklik otwiera podgląd"
     : "";
 }
@@ -307,6 +335,7 @@ function openGroup(path) {
   openGroupRequest = {
     account: account.value, path, folder: folderFilter.value,
     group_interval: groupInterval.value, page_size: pageSize.value, page: 1,
+    day: selectedDay, timezone: browserZone,
   };
   element("group-items").replaceChildren();
   element("group-info").textContent = "Wczytywanie grupy…";
@@ -361,11 +390,10 @@ function showItems(data) {
   element("grouping-control").hidden = !groupingEnabled();
   element("page-size-label").textContent = groupingEnabled() && groupInterval.value !== "0" ? "Kafle na stronę" : "Pliki na stronę";
 
-  const key = JSON.stringify([account.value, view, page, data.paths, data.sizes, data.groups, data.pending === null, data.ready]);
+  const key = JSON.stringify([account.value, view, selectedDay, page, data.paths, data.sizes, data.groups, data.pending === null, data.ready]);
   if (fingerprint === key) return;
   fingerprint = key;
   gallery.classList.toggle("pending", view === "pending");
-  gallery.setAttribute("aria-labelledby", `tab-${view}`);
   if (data.paths.length) {
     gallery.replaceChildren(...data.paths.map((path) => {
       if (view === "pending") return renderPending(path, data.sizes[path]);
@@ -376,7 +404,8 @@ function showItems(data) {
   } else {
     const empty = document.createElement("p");
     empty.className = "empty";
-    empty.textContent = view === "downloaded" ? "Brak pobranych plików."
+    empty.textContent = selectedDay ? "Brak plików dla tego dnia i wybranych filtrów."
+      : view === "downloaded" ? "Brak pobranych plików."
       : data.pending === null ? "Uruchom skan, aby zobaczyć pliki do pobrania."
         : "Skan nie znalazł brakujących plików w wybranym zakresie.";
     gallery.replaceChildren(empty);
@@ -388,15 +417,25 @@ async function refresh() {
   const current = ++requestId;
   loadingGallery = true;
   try {
+    const calendar = layout.value === "calendar";
     const query = new URLSearchParams({
       account: account.value, view, page, page_size: pageSize.value, media: mediaFilter.value,
       folder: folderFilter.value, group_interval: groupingEnabled() ? groupInterval.value : "0",
+      timezone: browserZone,
+      ...(calendar ? mediaCalendar.query() : { day: selectedDay }),
     });
     const data = await getJson(`/api/state?${query}`);
     if (current !== requestId) return;
     showLibraryCounts(data);
     showStorage(data);
-    showItems(data);
+    if (calendar) {
+      let note = "";
+      if (!data.ready) note = "Archiwum jest niedostępne.";
+      else if (data.calendar === null) note = "Użyj „Skanuj iCloud”, aby odczytać daty brakujących plików.";
+      mediaCalendar.render(data.calendar, note, mediaFilter.value);
+    } else {
+      showItems(data);
+    }
     showError("", "library-error");
   } catch (error) {
     if (current !== requestId) return;
@@ -501,6 +540,8 @@ document.addEventListener("fullscreenchange", () => {
 });
 account.addEventListener("change", () => {
   page = 1;
+  selectedDay = "";
+  updateLibraryLayout();
   operation = undefined;
   restoreScope = true;
   folderFilter.value = "";
@@ -523,11 +564,25 @@ const tabs = [...document.querySelectorAll("[data-view]")];
 for (const tab of tabs) {
   tab.addEventListener("click", () => {
     view = tab.dataset.view;
+    selectedDay = "";
     page = 1;
     for (const item of tabs) item.setAttribute("aria-selected", String(item === tab));
+    element("library-content").setAttribute("aria-labelledby", tab.id);
+    updateLibraryLayout();
     refresh();
   });
 }
+layout.addEventListener("change", () => {
+  page = 1;
+  updateLibraryLayout();
+  refresh();
+});
+clearDay.addEventListener("click", () => {
+  selectedDay = "";
+  page = 1;
+  updateLibraryLayout();
+  refresh();
+});
 
 function limitOption(value) {
   const optionValue = value === null ? "" : String(value);
@@ -550,6 +605,7 @@ function selectJobScope(job) {
 
 async function initialize() {
   chooseRecentDays(1);
+  updateLibraryLayout();
   try {
     const settings = await getJson("/api/accounts");
     for (const name of settings.accounts) account.add(new Option(name, name));

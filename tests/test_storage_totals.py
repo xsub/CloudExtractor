@@ -1,3 +1,4 @@
+from datetime import datetime, timezone
 import json
 import os
 from pathlib import Path
@@ -54,9 +55,14 @@ class StorageTotalsTest(unittest.TestCase):
         self.assertEqual(reported["cloud"]["filtered"], 130)
 
     def test_two_library_entries_can_share_an_original(self):
-        album = [SimpleNamespace(_asset_record={"recordName": name}) for name in ("first", "second")]
+        created = datetime(2026, 11, 12, tzinfo=timezone.utc)
+        album = [SimpleNamespace(_asset_record={"recordName": name}, created=created) for name in ("first", "second")]
         client = SimpleNamespace(photos=SimpleNamespace(all=album))
         with patch.object(icloud_inventory, "asset_files", return_value=({"2026/11/photo.jpg": 20}, True)):
             result = icloud_inventory.inventory(client, SimpleNamespace())
 
-        self.assertEqual(result, {"files": {"2026/11/photo.jpg": 20}, "items": 2, "unmeasured": 0})
+        self.assertEqual(result, {
+            "files": {"2026/11/photo.jpg": 20},
+            "timestamps": {"2026/11/photo.jpg": int(created.timestamp())},
+            "items": 2, "unmeasured": 0,
+        })

@@ -1,3 +1,5 @@
+from datetime import datetime
+import json
 import os
 from pathlib import Path
 from tempfile import TemporaryDirectory
@@ -13,6 +15,7 @@ class GalleryNavigationTest(unittest.TestCase):
         self.addCleanup(self.temporary.cleanup)
         root = Path(self.temporary.name)
         archive, state = root / "archive", root / "state"
+        self.cache = state / ".dashboard"
         self.account = "test@example.com"
         self.media = archive / self.account / "2026/11"
         self.media.mkdir(parents=True)
@@ -69,3 +72,35 @@ class GalleryNavigationTest(unittest.TestCase):
         self.assertEqual((group["newest"], group["oldest"]), (1794438010, 1794438006))
         self.assertEqual(self.status(media="video", group_interval=5)["groups"], {})
         self.assertEqual(self.status(group_interval=2)["groups"], {})
+
+    def test_calendar_counts_match_day_gallery_in_browser_timezone(self):
+        prior = int(datetime.fromisoformat("2026-11-11T22:59:59+00:00").timestamp())
+        self.write("before.jpg", prior)
+        self.write("photo.jpg", prior + 1)
+        self.write("video.mov", prior + 2)
+        self.write("unfinished.mov.part", prior + 2)
+        scope = {"calendar_from": "2026-11-01", "calendar_to": "2026-11-30", "timezone": "Europe/Warsaw"}
+
+        self.assertEqual(self.status(**scope)["calendar"], {
+            "2026-11-11": {"image": 1}, "2026-11-12": {"image": 1, "video": 1},
+        })
+        self.assertEqual(self.status(**scope, media="video")["calendar"], {"2026-11-12": {"video": 1}})
+        day = self.status(day="2026-11-12", timezone="Europe/Warsaw")
+        self.assertEqual(day["paths"], ["2026/11/video.mov", "2026/11/photo.jpg"])
+        self.assertEqual(day["downloaded"], 3)
+
+    def test_pending_calendar_requires_dated_inventory_and_skips_local_files(self):
+        self.write("photo.jpg", 1794438000)
+        snapshot = self.cache / f"{self.account}.json"
+        files = {"2026/11/photo.jpg": 4, "2026/11/missing.mov": 10}
+        data = {"files": files, "time": "2026-11-12T12:00:00+00:00"}
+        snapshot.write_text(json.dumps(data))
+        scope = {"view": "pending", "calendar_from": "2026-11-01", "calendar_to": "2026-11-30", "timezone": "UTC"}
+        old = self.status(**scope)
+        self.assertIsNone(old["calendar"])
+        self.assertEqual(old["pending"], 1)
+
+        snapshot.write_text(json.dumps({**data, "timestamps": dict.fromkeys(files, 1794438000)}))
+        archive, state = self.cache.parent.parent / "archive", self.cache.parent
+        self.client = create_app(archive, state).test_client()
+        self.assertEqual(self.status(**scope)["calendar"], {"2026-11-11": {"video": 1}})

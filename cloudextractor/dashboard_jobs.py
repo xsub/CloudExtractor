@@ -40,6 +40,7 @@ class Scan:
     limit: int | None
     complete: bool
     unmeasured: int = 0
+    dated: bool = False
 
 
 class Jobs:
@@ -143,7 +144,9 @@ class Jobs:
     def _load_scan(data: dict) -> Scan:
         complete = "files" in data
         files = data["files"] if complete else dict.fromkeys(data["paths"])
-        return Scan(Catalog(files), data["time"], data.get("limit"), complete, data.get("unmeasured", 0))
+        timestamps = data.get("timestamps")
+        return Scan(Catalog(files, timestamps), data["time"], data.get("limit"), complete,
+                    data.get("unmeasured", 0), dated=timestamps is not None)
 
     def _write_snapshot(self, file: Path, values: dict) -> dict:
         snapshot = {**values, "time": datetime.now(timezone.utc).isoformat()}

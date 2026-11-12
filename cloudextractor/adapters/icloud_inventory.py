@@ -60,6 +60,7 @@ def inventory(client: PyiCloudService, config: UserConfig) -> dict:
     LOGGER.info("Inventory 0/%d", expected)
     identifiers = set()
     files = {}
+    timestamps = {}
     unmeasured = 0
     for count, asset in enumerate(album, start=1):
         # Separate iCloud entries can share one original (the master record).
@@ -69,10 +70,13 @@ def inventory(client: PyiCloudService, config: UserConfig) -> dict:
         identifiers.add(identifier)
         try:
             assets, has_original = asset_files(asset, config)
+            created = int(asset.created.timestamp())
             for path, size in assets.items():
                 if type(size) is not int or size < 0 or Path(path).is_absolute() or ".." in Path(path).parts:
                     raise ValueError("Invalid asset metadata")
                 files.setdefault(path, size)
+                if created:
+                    timestamps.setdefault(path, created)
             unmeasured += not has_original
         except (KeyError, ValueError, TypeError, OSError, OverflowError):
             unmeasured += 1
@@ -81,7 +85,7 @@ def inventory(client: PyiCloudService, config: UserConfig) -> dict:
 
     if len(identifiers) != expected or len(album) != expected:
         raise ValueError("The iCloud listing was incomplete or changed during the scan")
-    return {"files": files, "items": expected, "unmeasured": unmeasured}
+    return {"files": files, "timestamps": timestamps, "items": expected, "unmeasured": unmeasured}
 
 
 def main() -> int:

@@ -5,7 +5,7 @@
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <title>CloudExtractor</title>
   <link rel="stylesheet" href="/static/app.css">
-  <script src="/static/app.js" defer></script>
+  <script src="/static/app.js" type="module"></script>
 </head>
 <body>
   <header class="top">
@@ -94,41 +94,73 @@
           </table>
         </div>
       </details>
-      <div class="tabs" role="tablist" aria-label="Widok biblioteki">
-        <button id="tab-downloaded" role="tab" aria-controls="items" aria-selected="true" data-view="downloaded">Pobrane <span id="downloaded-count">—</span></button>
-        <button id="tab-pending" role="tab" aria-controls="items" aria-selected="false" data-view="pending">Do pobrania <span id="pending-count">—</span></button>
-      </div>
-      <div class="gallery-tools">
-        <div class="view-options">
-          <label><span id="page-size-label">Pliki na stronę</span>
-            <select id="page-size">
-              <option value="20">20</option>
-              <option value="50" selected>50</option>
-              <option value="100">100</option>
-            </select>
-          </label>
-          <label id="grouping-control">Grupowanie zdjęć
-            <select id="group-interval">
-              <option value="0">Wyłączone</option>
-              <option value="2">Odstęp do 2 s</option>
-              <option value="5">Odstęp do 5 s</option>
-              <option value="10">Odstęp do 10 s</option>
-              <option value="30">Odstęp do 30 s</option>
-            </select>
-          </label>
+      <div class="library-nav">
+        <div class="tabs" role="tablist" aria-label="Źródło plików">
+          <button id="tab-downloaded" role="tab" aria-controls="library-content" aria-selected="true" data-view="downloaded">Pobrane <span id="downloaded-count">—</span></button>
+          <button id="tab-pending" role="tab" aria-controls="library-content" aria-selected="false" data-view="pending">Do pobrania <span id="pending-count">—</span></button>
         </div>
-        <nav id="pagination" class="pagination" aria-label="Strony plików">
-          <button id="previous" aria-label="Poprzednia strona" disabled>←</button>
-          <form id="page-jump">
-            <label for="page-number">Strona</label>
-            <input type="number" id="page-number" value="1" min="1" step="1" inputmode="numeric" required>
-            <span id="page-count">/ 1</span>
-            <button type="submit">Przejdź</button>
-          </form>
-          <button id="next" aria-label="Następna strona" disabled>→</button>
-        </nav>
+        <label class="layout-picker">Widok
+          <select id="library-layout">
+            <option value="gallery">Galeria</option>
+            <option value="calendar">Kalendarz</option>
+          </select>
+        </label>
       </div>
-      <div id="items" role="tabpanel" aria-labelledby="tab-downloaded" class="gallery"></div>
+      <div id="library-content" role="tabpanel" aria-labelledby="tab-downloaded">
+        <div id="gallery-tools" class="gallery-tools">
+          <div class="view-options">
+            <button type="button" id="clear-day" aria-label="Pokaż wszystkie dni" hidden></button>
+            <label><span id="page-size-label">Pliki na stronę</span>
+              <select id="page-size">
+                <option value="20">20</option>
+                <option value="50" selected>50</option>
+                <option value="100">100</option>
+              </select>
+            </label>
+            <label id="grouping-control">Grupowanie zdjęć
+              <select id="group-interval">
+                <option value="0">Wyłączone</option>
+                <option value="2">Odstęp do 2 s</option>
+                <option value="5">Odstęp do 5 s</option>
+                <option value="10">Odstęp do 10 s</option>
+                <option value="30">Odstęp do 30 s</option>
+              </select>
+            </label>
+          </div>
+          <nav id="pagination" class="pagination" aria-label="Strony plików">
+            <button id="previous" aria-label="Poprzednia strona" disabled>←</button>
+            <form id="page-jump">
+              <label for="page-number">Strona</label>
+              <input type="number" id="page-number" value="1" min="1" step="1" inputmode="numeric" required>
+              <span id="page-count">/ 1</span>
+              <button type="submit">Przejdź</button>
+            </form>
+            <button id="next" aria-label="Następna strona" disabled>→</button>
+          </nav>
+        </div>
+        <div id="items" class="gallery"></div>
+        <section id="calendar-panel" class="calendar-panel" aria-label="Kalendarz plików" hidden>
+          <div class="calendar-toolbar">
+            <label class="layout-picker">Liczba miesięcy
+              <select id="calendar-size">
+                <option value="1">1</option>
+                <option value="3" selected>3</option>
+                <option value="6">6</option>
+                <option value="12">12</option>
+              </select>
+            </label>
+            <div class="calendar-nav" aria-label="Nawigacja kalendarza">
+              <button type="button" id="calendar-previous" aria-label="Starsze miesiące">←</button>
+              <button type="button" id="calendar-today">Bieżący miesiąc</button>
+              <button type="button" id="calendar-next" aria-label="Nowsze miesiące" disabled>→</button>
+            </div>
+            <span class="calendar-legend"><strong>I</strong> obrazy · <strong>V</strong> filmy</span>
+          </div>
+          <p id="calendar-period" class="calendar-period" role="status"></p>
+          <p id="calendar-note" class="calendar-note" hidden></p>
+          <div id="calendar-months" class="calendar-months"></div>
+        </section>
+      </div>
     </section>
   </main>
 

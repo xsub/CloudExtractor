@@ -90,6 +90,8 @@ Panel pokazuje dwa łączne rozmiary dla wybranego Apple ID. Apple raportuje mie
 
 Wybierz 20, 50 lub 100 pozycji na stronę. Wpisz numer strony i naciśnij Enter albo „Przejdź”. W galerii pobranych zdjęć możesz włączyć grupowanie według odstępu 2, 5, 10 lub 30 sekund. CloudExtractor korzysta z czasu wykonania zapisanego przez `icloudpd` w dacie modyfikacji pliku. Po włączeniu grupowania każda seria zajmuje jeden kafel. Kliknij grupę, by zobaczyć jej zdjęcia, a następnie kliknij dowolną miniaturę, by otworzyć pełny ekran.
 
+Wybierz widok „Kalendarz”, aby zobaczyć 1, 3, 6 lub 12 miesięcy. Każdy dzień pokazuje liczbę plików według daty wykonania w strefie przeglądarki (I — obrazy, V — filmy). Kliknij dzień, aby przejść do galerii z filtrem daty. W zakładce „Do pobrania” liczniki wymagają skanu iCloud zapisanego z datami.
+
 ## Adaptery
 
 Moduły źródeł są w `cloudextractor/adapters/`. Każdy adapter wyznacza katalogi archiwum i stanu oraz argumenty procesu dla `run` i `auth`. Polecenie główne wybiera adapter przez `CLOUDEXTRACTOR_SOURCE`, sprawdza archiwum, blokuje równoległe użycie tego samego stanu i przekazuje kod zakończenia procesu. Import z Google Takeout może użyć tej samej obsługi katalogu docelowego i własnej konfiguracji wejścia.

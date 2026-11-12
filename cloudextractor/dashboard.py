@@ -1,9 +1,11 @@
+from datetime import timedelta
 from io import BytesIO
 import os
 from pathlib import Path
 import signal
 import subprocess
 import sys
+from zoneinfo import ZoneInfo
 
 from flask import Flask, abort, jsonify, request, send_file
 from PIL import Image
@@ -36,6 +38,17 @@ def group_interval() -> int:
     if interval not in (0, *GROUP_INTERVALS):
         abort(400)
     return interval
+
+
+def capture_bounds(start: str, end: str) -> tuple[float, float, ZoneInfo]:
+    timezone = request.args.get("timezone", "UTC")
+    try:
+        first, last = DateRange(start, end, timezone).utc_bounds()
+    except ValueError:
+        abort(400)
+    if last - first > timedelta(days=367):
+        abort(400)
+    return first.timestamp(), last.timestamp(), ZoneInfo(timezone)
 
 
 def create_app(archive: Path, state: Path) -> Flask:
@@ -111,6 +124,15 @@ def create_app(archive: Path, state: Path) -> Flask:
         view = request.args.get("view", "downloaded")
         paths = pending if view == "pending" else downloaded
         catalog = scan.catalog if view == "pending" and scan else local
+        calendar = None
+        if "calendar_from" in request.args or "calendar_to" in request.args:
+            first, last, zone = capture_bounds(request.args.get("calendar_from", ""), request.args.get("calendar_to", ""))
+            dated = local is not None and (view != "pending" or scan and scan.dated)
+            calendar = catalog.daily_counts(paths, first, last, zone) if dated else None
+        day = request.args.get("day")
+        if day:
+            first, last, _ = capture_bounds(day, day)
+            paths = [path for path, _ in catalog.dated_paths(paths, first, last)] if catalog else []
         interval = group_interval()
         groups = {}
         if interval and view == "downloaded" and media != "video" and local:
@@ -136,7 +158,7 @@ def create_app(archive: Path, state: Path) -> Flask:
             paths=visible, page=page, pages=pages, page_size=page_size, total=len(paths),
             sizes={path: catalog.files[path] for path in visible},
             types={path: catalog.types[path] for path in visible},
-            groups={path: {"count": len(groups[path]), "bytes": sum(local.files[member] for member in groups[path])}
+            calendar=calendar, groups={path: {"count": len(groups[path]), "bytes": sum(local.files[member] for member in groups[path])}
                     for path in visible if path in groups},
         )
 
@@ -149,7 +171,12 @@ def create_app(archive: Path, state: Path) -> Flask:
         folder = request.args.get("folder", "")
         job, _, _ = jobs.snapshot(account)
         local = gallery.items(account, job["status"] in ACTIVE)
-        _, groups = local.grouped(local.filtered("image", folder), interval)
+        paths = local.filtered("image", folder)
+        day = request.args.get("day")
+        if day:
+            first, last, _ = capture_bounds(day, day)
+            paths = [path for path, _ in local.dated_paths(paths, first, last)]
+        _, groups = local.grouped(paths, interval)
         path = request.args.get("path", "")
         members = groups.get(path)
         if not members:
