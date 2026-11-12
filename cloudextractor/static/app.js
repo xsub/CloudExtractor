@@ -29,7 +29,8 @@ const date = new Intl.DateTimeFormat(locale, { dateStyle: "short", timeStyle: "s
 const calendarDate = new Intl.DateTimeFormat(locale, { dateStyle: "medium", timeZone: "UTC" });
 const captureTime = new Intl.DateTimeFormat(locale, { dateStyle: "short", timeStyle: "medium" });
 const decimal = new Intl.NumberFormat(locale, { maximumFractionDigits: 2 });
-const percentage = new Intl.NumberFormat(locale, { style: "percent", maximumFractionDigits: 1 });
+const folderDecimal = new Intl.NumberFormat(locale, { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+const percentage = new Intl.NumberFormat(locale, { style: "percent", minimumFractionDigits: 1, maximumFractionDigits: 1 });
 const labels = {
   idle: t("Gotowy", "Ready"), running: t("Pobieranie", "Downloading"), scanning: t("Skanowanie", "Scanning"), stopping: t("Zatrzymywanie", "Stopping"),
   stopped: t("Zatrzymano", "Stopped"), finished: t("Zakończono", "Finished"), failed: t("Błąd", "Error"),
@@ -99,20 +100,43 @@ function suffix(path) {
   return path.split(".").pop().toLowerCase();
 }
 
-function bytes(size) {
-  if (size === null || size === undefined) return "—";
+function byteParts(size, formatter) {
   const units = ["B", "KB", "MB", "GB", "TB"];
   let unit = 0;
   while (size >= 1000 && unit < units.length - 1) {
     size /= 1000;
     unit += 1;
   }
-  return `${decimal.format(size)} ${units[unit]}`;
+  return [formatter.format(size), units[unit]];
+}
+
+function bytes(size) {
+  return size == null ? "—" : byteParts(size, decimal).join(" ");
 }
 
 function setBytes(target, size, minimum = false) {
   target.textContent = `${minimum && size !== null && size !== undefined ? "≥ " : ""}${bytes(size)}`;
   target.title = size === null || size === undefined ? "" : `${number.format(size)} B`;
+}
+
+function setFolderBytes(target, size) {
+  if (size == null) {
+    target.textContent = "—";
+    target.title = "";
+    return;
+  }
+  const [amount, suffix] = byteParts(size, folderDecimal);
+  const unit = document.createElement("span");
+  unit.className = "folder-unit";
+  unit.textContent = suffix;
+  target.replaceChildren(`${amount} `, unit);
+  target.title = `${number.format(size)} B`;
+}
+
+function updateFolderValues(row, folder) {
+  setFolderBytes(row.cells[1], folder.cloud);
+  setFolderBytes(row.cells[2], folder.local);
+  row.cells[3].textContent = folder.cloud > 0 && folder.local != null ? percentage.format(folder.local / folder.cloud) : "—";
 }
 
 function mediaUrl(path, kind) {
@@ -318,6 +342,12 @@ function showStorage(data) {
   const signature = JSON.stringify(data.folders);
   if (signature === folderFingerprint) return;
   folderFingerprint = signature;
+  const table = element("folder-sizes");
+  if (table.rows.length === data.folders.length &&
+      data.folders.every((folder, index) => table.rows[index].dataset.folder === folder.name)) {
+    data.folders.forEach((folder, index) => updateFolderValues(table.rows[index], folder));
+    return;
+  }
   const selected = folderFilter.value;
   folderFilter.replaceChildren(new Option(t("Wszystkie katalogi", "All folders"), ""));
   const rows = [];
@@ -325,9 +355,11 @@ function showStorage(data) {
     const name = folder.name === "." ? t("Katalog główny", "Root folder") : folder.name;
     folderFilter.add(new Option(name, folder.name));
     const row = document.createElement("tr");
+    row.dataset.folder = folder.name;
     const nameCell = document.createElement("td");
     const pick = document.createElement("button");
     pick.textContent = name;
+    pick.title = name;
     pick.addEventListener("click", () => {
       folderFilter.value = folder.name;
       page = 1;
@@ -338,7 +370,6 @@ function showStorage(data) {
     const local = document.createElement("td");
     const ratio = document.createElement("td");
     ratio.className = "folder-ratio";
-    ratio.textContent = folder.cloud > 0 && folder.local != null ? percentage.format(folder.local / folder.cloud) : "—";
     ratio.title = t("Udział lokalnego rozmiaru w rozmiarze iCloud dla wybranego typu plików.", "Local size divided by iCloud size for the selected file type.");
     const actions = document.createElement("td");
     actions.className = "folder-action-cell";
@@ -356,16 +387,15 @@ function showStorage(data) {
       });
       actions.append(menuButton);
     }
-    setBytes(cloud, folder.cloud);
-    setBytes(local, folder.local);
     row.append(nameCell, cloud, local, ratio, actions);
+    updateFolderValues(row, folder);
     rows.push(row);
   }
   if (selected && !data.folders.some((folder) => folder.name === selected)) {
     folderFilter.add(new Option(selected, selected));
   }
   folderFilter.value = selected;
-  element("folder-sizes").replaceChildren(...rows);
+  table.replaceChildren(...rows);
 }
 
 function showPreview(path, kind) {

@@ -93,14 +93,19 @@ h2 { font-size: 1.35rem; }
 .filters select { min-height: 35px; max-width: 100%; color: #17223a; }
 .folder-summary { margin: 0 23px 12px; border: 1px solid var(--border); border-radius: 8px; }
 .folder-summary summary { cursor: pointer; padding: 9px 12px; font-size: .85rem; font-weight: 650; }
-.folder-table { max-height: 260px; overflow: auto; border-top: 1px solid var(--border); }
-.folder-table table { width: 100%; border-collapse: collapse; font-size: .82rem; font-variant-numeric: tabular-nums; }
+.folder-table { max-height: 260px; overflow: auto; scrollbar-gutter: stable; border-top: 1px solid var(--border); }
+.folder-table table { width: 100%; min-width: 32rem; table-layout: fixed; border-collapse: collapse; font-size: .82rem; }
+.folder-size-column { width: 22%; }
+.folder-ratio-column { width: 24%; }
+.folder-action-column { width: 2.75rem; }
 .folder-table th, .folder-table td { padding: 8px 12px; text-align: right; border-bottom: 1px solid #edf0f5; }
 .folder-table th:first-child, .folder-table td:first-child { text-align: left; }
-.folder-table th { position: sticky; top: 0; background: #f7f9fd; }
+.folder-table th { position: sticky; top: 0; background: #f7f9fd; white-space: nowrap; }
+.folder-table td { height: 44px; font-family: ui-monospace, "SFMono-Regular", Consolas, monospace; white-space: nowrap; }
+.folder-table td:first-child button { display: block; max-width: 100%; overflow: hidden; white-space: nowrap; text-overflow: ellipsis; }
 .folder-table button { min-height: 0; padding: 0; border: 0; color: var(--accent); }
-.folder-table .folder-ratio { white-space: nowrap; }
-.folder-table .folder-action-cell { width: 1%; padding-inline: 4px 8px; }
+.folder-table .folder-unit { display: inline-block; width: 2ch; text-align: left; }
+.folder-table .folder-action-cell { padding-inline: 4px 8px; }
 .folder-table .folder-actions { min-width: 32px; min-height: 28px; padding-inline: 4px; font-size: 1rem; }
 .folder-table .folder-actions:hover { background: #e8f0ff; }
 .month-menu {
