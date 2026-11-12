@@ -86,6 +86,8 @@ Otwórz [panel CloudExtractor](http://127.0.0.1:8765). Jeśli ustawisz inny port
 
 Panel pokazuje dwa łączne rozmiary dla wybranego Apple ID. Apple raportuje miejsce zajęte przez Zdjęcia iCloud. Szczegółowy skan liczy pliki dostępne dla eksportu, w tym części wideo Live Photos i warianty RAW+JPEG. Suma lokalna obejmuje pliki w archiwum, także częściowe pobrania. Filtry typu i katalogu pokazują podsumowania wybranych plików obok obu sum. W tabeli katalogów rozmiary są grupowane według ścieżek archiwum `rok/miesiąc`.
 
+Wybierz 20, 50 lub 100 pozycji na stronę. Wpisz numer strony i naciśnij Enter albo „Przejdź”. W galerii pobranych zdjęć możesz włączyć grupowanie według odstępu 2, 5, 10 lub 30 sekund. CloudExtractor korzysta z czasu wykonania zapisanego przez `icloudpd` w dacie modyfikacji pliku. Po włączeniu grupowania każda seria zajmuje jeden kafel. Kliknij grupę, by zobaczyć jej zdjęcia, a następnie kliknij dowolną miniaturę, by otworzyć pełny ekran.
+
 ## Adaptery
 
 Moduły źródeł są w `cloudextractor/adapters/`. Każdy adapter wyznacza katalogi archiwum i stanu oraz argumenty procesu dla `run` i `auth`. Polecenie główne wybiera adapter przez `CLOUDEXTRACTOR_SOURCE`, sprawdza archiwum, blokuje równoległe użycie tego samego stanu i przekazuje kod zakończenia procesu. Import z Google Takeout może użyć tej samej obsługi katalogu docelowego i własnej konfiguracji wejścia.

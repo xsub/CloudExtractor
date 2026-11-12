@@ -15,8 +15,26 @@ from cloudextractor.dashboard_jobs import Jobs
 from cloudextractor.dashboard_media import Gallery, VIDEOS, jpeg_preview
 
 
-PAGE_SIZE = 48
+PAGE_SIZES = (20, 50, 100)
+GROUP_INTERVALS = (2, 5, 10, 30)
 ACTIVE = ("running", "scanning", "stopping")
+
+
+def paginate(paths: list[str]) -> tuple[list[str], int, int, int]:
+    size = request.args.get("page_size", default=50, type=int)
+    if size not in PAGE_SIZES:
+        abort(400)
+    pages = max(1, (len(paths) + size - 1) // size)
+    page = min(pages, max(1, request.args.get("page", default=1, type=int)))
+    start = (page - 1) * size
+    return paths[start:start + size], page, pages, size
+
+
+def group_interval() -> int:
+    interval = request.args.get("group_interval", default=0, type=int)
+    if interval not in (0, *GROUP_INTERVALS):
+        abort(400)
+    return interval
 
 
 def create_app(archive: Path, state: Path) -> Flask:
@@ -92,9 +110,11 @@ def create_app(archive: Path, state: Path) -> Flask:
         view = request.args.get("view", "downloaded")
         paths = pending if view == "pending" else downloaded
         catalog = scan.catalog if view == "pending" and scan else local
-        page = max(1, request.args.get("page", default=1, type=int))
-        start = (page - 1) * PAGE_SIZE
-        visible = paths[start:start + PAGE_SIZE]
+        interval = group_interval()
+        groups = {}
+        if interval and view == "downloaded" and media != "video" and local:
+            paths, groups = local.grouped(paths, interval)
+        visible, page, pages, page_size = paginate(paths)
         local_folders = local.folders if local else {}
         cloud_folders = cloud.folders if cloud else {}
         cloud_summary = cloud.summary(media, folder) if cloud else None
@@ -112,9 +132,34 @@ def create_app(archive: Path, state: Path) -> Flask:
                  "cloud": Catalog.filtered_size(cloud_folders.get(name, {}), media) if cloud else None}
                 for name in sorted(local_folders.keys() | cloud_folders.keys(), reverse=True)
             ],
-            paths=visible, page_size=PAGE_SIZE, total=len(paths),
+            paths=visible, page=page, pages=pages, page_size=page_size, total=len(paths),
             sizes={path: catalog.files[path] for path in visible},
             types={path: catalog.types[path] for path in visible},
+            groups={path: {"count": len(groups[path]), "bytes": sum(local.files[member] for member in groups[path])}
+                    for path in visible if path in groups},
+        )
+
+    @app.get("/api/group")
+    def group():
+        account = selected_account(request.args.get("account", ""))
+        interval = group_interval()
+        if not interval or not archive_ready():
+            abort(404)
+        folder = request.args.get("folder", "")
+        job, _, _ = jobs.snapshot(account)
+        local = gallery.items(account, job["status"] in ACTIVE)
+        _, groups = local.grouped(local.filtered("image", folder), interval)
+        path = request.args.get("path", "")
+        members = groups.get(path)
+        if not members:
+            members = next((group for group in groups.values() if path in group), None)
+        if not members:
+            abort(404)
+        visible, page, pages, _ = paginate(members)
+        return jsonify(
+            paths=visible, sizes={path: local.files[path] for path in visible},
+            page=page, pages=pages, count=len(members),
+            newest=local.timestamps[members[0]], oldest=local.timestamps[members[-1]],
         )
 
     @app.post("/api/jobs")

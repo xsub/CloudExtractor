@@ -25,8 +25,9 @@ def folder_name(path: str) -> str:
 
 
 class Catalog:
-    def __init__(self, files: dict[str, int | None]):
+    def __init__(self, files: dict[str, int | None], timestamps: dict[str, int] | None = None):
         self.files = files
+        self.timestamps = timestamps if timestamps is not None else {}
         self.types = {path: media_type(path) for path in files}
         self.paths = sorted((path for path, kind in self.types.items() if kind != "other"), reverse=True)
         self.sizes: Counter[str] = Counter()
@@ -40,6 +41,27 @@ class Catalog:
     def filtered(self, media: str, folder: str) -> list[str]:
         return [path for path in self.paths if matches_filter(self.types[path], media)
                 and (not folder or folder_name(path) == folder)]
+
+    def grouped(self, paths: list[str], interval: int) -> tuple[list[str], dict[str, list[str]]]:
+        timeline = sorted(paths, key=lambda path: (self.timestamps.get(path, float("-inf")), path), reverse=True)
+        covers = []
+        groups = {}
+        previous = None
+        members = []
+        for path in timeline:
+            timestamp = self.timestamps.get(path)
+            if self.types[path] != "image" or timestamp is None or timestamp == 0:
+                covers.append(path)
+                continue
+
+            if previous is not None and previous - timestamp <= interval:
+                members.append(path)
+                groups[members[0]] = members
+            else:
+                covers.append(path)
+                members = [path]
+            previous = timestamp
+        return covers, groups
 
     def summary(self, media: str, folder: str) -> dict[str, int]:
         sizes = self.folders.get(folder, {}) if folder else self.sizes

@@ -3,10 +3,15 @@ const account = element("account");
 const limit = element("limit");
 const mediaFilter = element("media-filter");
 const folderFilter = element("folder-filter");
+const pageSize = element("page-size");
+const pageNumber = element("page-number");
+const groupInterval = element("group-interval");
 const gallery = element("items");
+const groupViewer = element("group-viewer");
 const viewer = element("viewer");
 const number = new Intl.NumberFormat("pl-PL");
 const date = new Intl.DateTimeFormat("pl-PL", { dateStyle: "short", timeStyle: "short" });
+const captureTime = new Intl.DateTimeFormat("pl-PL", { dateStyle: "short", timeStyle: "medium" });
 const decimal = new Intl.NumberFormat("pl-PL", { maximumFractionDigits: 2 });
 const labels = {
   idle: "Gotowy", running: "Pobieranie", scanning: "Skanowanie", stopping: "Zatrzymywanie",
@@ -27,6 +32,11 @@ let folderFingerprint;
 let requestId = 0;
 let sending = false;
 let defaultLimit = 20;
+let openGroupRequest;
+
+function groupingEnabled() {
+  return view === "downloaded" && mediaFilter.value !== "video";
+}
 
 function suffix(path) {
   return path.split(".").pop().toLowerCase();
@@ -105,7 +115,9 @@ function showActivity(data) {
   element("activity").textContent = detail;
   element("downloaded-count").textContent = number.format(data.downloaded);
   element("pending-count").textContent = data.pending === null ? "—" : number.format(data.pending);
-  element("scope").textContent = view === "downloaded" && data.downloaded ? "Dwuklik otwiera podgląd" : "";
+  element("scope").textContent = view === "downloaded" && data.downloaded
+    ? groupingEnabled() && groupInterval.value !== "0" ? "Kliknij grupę, aby zobaczyć zdjęcia" : "Dwuklik otwiera podgląd"
+    : "";
 }
 
 function showStorage(data) {
@@ -180,11 +192,12 @@ function showPreview(path, kind) {
   element("filename").textContent = name;
   element("original").href = mediaUrl(path, "original");
   element("preview").replaceChildren(content);
+  element("close-viewer").setAttribute("aria-label", groupViewer.open ? "Wróć do grupy" : "Zamknij podgląd");
   viewer.showModal();
   viewer.requestFullscreen?.().catch(() => {});
 }
 
-function renderAsset(path, size, kind) {
+function renderAsset(path, size, kind, { open, count } = {}) {
   const asset = document.createElement("button");
   const thumb = document.createElement("span");
   const image = document.createElement("img");
@@ -193,7 +206,6 @@ function renderAsset(path, size, kind) {
   const fileSize = document.createElement("span");
   asset.className = "asset";
   asset.type = "button";
-  asset.setAttribute("aria-pressed", "false");
   asset.title = path;
   thumb.className = "thumb";
   image.alt = "";
@@ -207,7 +219,20 @@ function renderAsset(path, size, kind) {
   fileSize.className = "asset-size";
   setBytes(fileSize, size);
   thumb.append(image, type);
+  if (count) {
+    const badge = document.createElement("span");
+    badge.className = "group-count";
+    badge.textContent = `×${number.format(count)}`;
+    asset.setAttribute("aria-label", `Pokaż grupę zdjęć (${number.format(count)})`);
+    name.textContent = "Grupa zdjęć";
+    thumb.append(badge);
+  }
   asset.append(thumb, name, fileSize);
+  if (open) {
+    asset.addEventListener("click", open);
+    return asset;
+  }
+  asset.setAttribute("aria-pressed", "false");
   asset.addEventListener("click", (event) => {
     if (event.detail === 0) {
       showPreview(path, kind);
@@ -221,6 +246,40 @@ function renderAsset(path, size, kind) {
     if (event.pointerType === "touch") showPreview(path, kind);
   });
   return asset;
+}
+
+function openGroup(path) {
+  openGroupRequest = {
+    account: account.value, path, folder: folderFilter.value,
+    group_interval: groupInterval.value, page_size: pageSize.value, page: 1,
+  };
+  element("group-items").replaceChildren();
+  element("group-info").textContent = "Wczytywanie grupy…";
+  element("group-more").hidden = true;
+  groupViewer.showModal();
+  loadGroup();
+}
+
+async function loadGroup() {
+  const request = openGroupRequest;
+  if (!request) return;
+  const more = element("group-more");
+  more.disabled = true;
+  try {
+    const data = await getJson(`/api/group?${new URLSearchParams(request)}`);
+    if (openGroupRequest !== request) return;
+    element("group-info").textContent = `Liczba zdjęć ${number.format(data.count)} · ${captureTime.formatRange(data.oldest * 1000, data.newest * 1000)}`;
+    element("group-items").append(...data.paths.map((path) => renderAsset(path, data.sizes[path], "image", {
+      open: () => showPreview(path, "image"),
+    })));
+    request.page = data.page + 1;
+    more.hidden = data.page >= data.pages;
+  } catch (error) {
+    if (openGroupRequest !== request) return;
+    element("group-info").textContent = error.message;
+  } finally {
+    if (openGroupRequest === request) more.disabled = false;
+  }
 }
 
 function renderPending(path, size) {
@@ -237,25 +296,28 @@ function renderPending(path, size) {
 }
 
 function showItems(data) {
-  const pages = Math.max(1, Math.ceil(data.total / data.page_size));
-  if (page > pages) {
-    page = pages;
-    refresh();
-    return;
-  }
-  element("pagination").hidden = pages === 1;
+  const { pages } = data;
+  page = data.page;
+  pageNumber.max = pages;
+  if (document.activeElement !== pageNumber) pageNumber.value = page;
   element("previous").disabled = page === 1;
   element("next").disabled = page === pages;
-  element("page").textContent = `${number.format(page)} / ${number.format(pages)}`;
+  element("page-count").textContent = `/ ${number.format(pages)}`;
+  element("grouping-control").hidden = !groupingEnabled();
+  element("page-size-label").textContent = groupingEnabled() && groupInterval.value !== "0" ? "Kafle na stronę" : "Pliki na stronę";
 
-  const key = JSON.stringify([account.value, view, page, data.paths, data.sizes, data.pending === null, data.ready]);
+  const key = JSON.stringify([account.value, view, page, data.paths, data.sizes, data.groups, data.pending === null, data.ready]);
   if (fingerprint === key) return;
   fingerprint = key;
   gallery.classList.toggle("pending", view === "pending");
   gallery.setAttribute("aria-labelledby", `tab-${view}`);
   if (data.paths.length) {
-    const render = view === "pending" ? renderPending : renderAsset;
-    gallery.replaceChildren(...data.paths.map((path) => render(path, data.sizes[path], data.types[path])));
+    gallery.replaceChildren(...data.paths.map((path) => {
+      if (view === "pending") return renderPending(path, data.sizes[path]);
+      const group = data.groups[path];
+      if (group) return renderAsset(path, group.bytes, data.types[path], { count: group.count, open: () => openGroup(path) });
+      return renderAsset(path, data.sizes[path], data.types[path]);
+    }));
   } else {
     const empty = document.createElement("p");
     empty.className = "empty";
@@ -270,7 +332,11 @@ async function refresh() {
   if (!account.value) return;
   const current = ++requestId;
   try {
-    const data = await getJson(`/api/state?${new URLSearchParams({ account: account.value, view, page, media: mediaFilter.value, folder: folderFilter.value })}`);
+    const query = new URLSearchParams({
+      account: account.value, view, page, page_size: pageSize.value, media: mediaFilter.value,
+      folder: folderFilter.value, group_interval: groupingEnabled() ? groupInterval.value : "0",
+    });
+    const data = await getJson(`/api/state?${query}`);
     if (current !== requestId) return;
     if (!snapshot && data.job.action === "run") selectLimit(data.job.limit);
     snapshot = data;
@@ -308,6 +374,18 @@ element("stop").addEventListener("click", () => control("stop"));
 element("scan").addEventListener("click", () => control("scan"));
 element("previous").addEventListener("click", () => { page -= 1; refresh(); });
 element("next").addEventListener("click", () => { page += 1; refresh(); });
+element("page-jump").addEventListener("submit", (event) => {
+  event.preventDefault();
+  page = pageNumber.valueAsNumber;
+  pageNumber.blur();
+  refresh();
+});
+element("close-group").addEventListener("click", () => groupViewer.close());
+element("group-more").addEventListener("click", loadGroup);
+groupViewer.addEventListener("close", () => {
+  openGroupRequest = undefined;
+  element("group-items").replaceChildren();
+});
 element("close-viewer").addEventListener("click", () => viewer.close());
 viewer.addEventListener("close", () => {
   element("preview").replaceChildren();
@@ -325,7 +403,7 @@ account.addEventListener("change", () => {
   updateControls();
   refresh();
 });
-for (const filter of [mediaFilter, folderFilter]) {
+for (const filter of [mediaFilter, folderFilter, pageSize, groupInterval]) {
   filter.addEventListener("change", () => { page = 1; refresh(); });
 }
 const tabs = [...document.querySelectorAll("[data-view]")];

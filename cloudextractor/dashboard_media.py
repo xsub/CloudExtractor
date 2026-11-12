@@ -30,25 +30,28 @@ class Gallery:
             if cached and cached[1] == active and now - cached[0] < (5 if active else 30):
                 return cached[2]
             full_refresh = cached is None or now - cached[3] >= 300
-            previous = {} if full_refresh else cached[2].files
+            previous = None if full_refresh else cached[2]
             root = self.archive / account
             sizes = {}
+            timestamps = {}
             if root.is_dir() and not root.is_symlink():
                 for directory, folders, names in os.walk(root):
                     folders[:] = [name for name in folders if not name.startswith(".")]
                     relative = Path(directory).relative_to(root)
                     for name in names:
                         path = (relative / name).as_posix()
-                        if path in previous and not name.endswith(".part"):
-                            sizes[path] = previous[path]
+                        if previous and path in previous.files and not name.endswith(".part"):
+                            sizes[path] = previous.files[path]
+                            timestamps[path] = previous.timestamps[path]
                             continue
                         try:
                             metadata = (Path(directory) / name).stat(follow_symlinks=False)
                             if stat.S_ISREG(metadata.st_mode):
                                 sizes[path] = metadata.st_size
+                                timestamps[path] = metadata.st_mtime_ns // 1_000_000_000
                         except FileNotFoundError:
                             continue
-            catalog = Catalog(sizes)
+            catalog = Catalog(sizes, timestamps)
             self.snapshots[account] = now, active, catalog, now if full_refresh else cached[3]
             return catalog
 
