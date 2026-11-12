@@ -88,7 +88,7 @@ Wybierz zakres i kliknij „Uruchom pobieranie”. Wcześniejszy skan nie jest p
 
 Panel pokazuje dwa łączne rozmiary dla wybranego Apple ID. Apple raportuje miejsce zajęte przez Zdjęcia iCloud. Szczegółowy skan liczy pliki dostępne dla eksportu, w tym części wideo Live Photos i warianty RAW+JPEG. Suma lokalna obejmuje pliki w archiwum, także częściowe pobrania. Filtry typu i katalogu pokazują podsumowania wybranych plików obok obu sum. W tabeli katalogów rozmiary są grupowane według ścieżek archiwum `rok/miesiąc`.
 
-Wybierz 20, 50 lub 100 pozycji na stronę. Wpisz numer strony i naciśnij Enter albo „Przejdź”. W galerii pobranych zdjęć możesz włączyć grupowanie według odstępu 2, 5, 10 lub 30 sekund. CloudExtractor korzysta z czasu wykonania zapisanego przez `icloudpd` w dacie modyfikacji pliku. Po włączeniu grupowania każda seria zajmuje jeden kafel. Kliknij grupę, by zobaczyć jej zdjęcia, a następnie kliknij dowolną miniaturę, by otworzyć pełny ekran.
+Wybierz 20, 50 lub 100 pozycji na stronę. Wpisz numer strony i naciśnij Enter albo „Przejdź”. W galerii pobranych zdjęć możesz włączyć grupowanie według odstępu 2, 5, 10, 30, 45, 60, 90 lub 180 sekund. CloudExtractor korzysta z czasu wykonania zapisanego przez `icloudpd` w dacie modyfikacji pliku. Po włączeniu grupowania każda seria zajmuje jeden kafel. Kliknij grupę, by zobaczyć jej zdjęcia, a następnie kliknij dowolną miniaturę, by otworzyć pełny ekran.
 
 Wybierz widok „Kalendarz”, aby zobaczyć 1, 3, 6 lub 12 miesięcy. Każdy dzień pokazuje liczbę plików według daty wykonania w strefie przeglądarki (I — obrazy, V — filmy). Kliknij dzień, aby przejść do galerii z filtrem daty. W zakładce „Do pobrania” liczniki wymagają skanu iCloud zapisanego z datami.
 

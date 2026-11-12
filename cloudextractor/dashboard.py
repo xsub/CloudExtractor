@@ -19,7 +19,7 @@ from cloudextractor.download_dates import DateRange
 
 
 PAGE_SIZES = (20, 50, 100)
-GROUP_INTERVALS = (2, 5, 10, 30)
+GROUP_INTERVALS = (2, 5, 10, 30, 45, 60, 90, 180)
 ACTIVE = ("running", "scanning", "stopping")
 
 
