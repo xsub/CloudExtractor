@@ -1,4 +1,5 @@
 import { MediaCalendar } from "./calendar.js";
+import { locale, localizeDocument, requestError, t } from "./language.js";
 
 const element = (id) => document.getElementById(id);
 const account = element("account");
@@ -23,21 +24,21 @@ const monthDownload = element("month-download");
 const gallery = element("items");
 const groupViewer = element("group-viewer");
 const viewer = element("viewer");
-const number = new Intl.NumberFormat("pl-PL");
-const date = new Intl.DateTimeFormat("pl-PL", { dateStyle: "short", timeStyle: "short" });
-const calendarDate = new Intl.DateTimeFormat("pl-PL", { dateStyle: "medium", timeZone: "UTC" });
-const captureTime = new Intl.DateTimeFormat("pl-PL", { dateStyle: "short", timeStyle: "medium" });
-const decimal = new Intl.NumberFormat("pl-PL", { maximumFractionDigits: 2 });
-const percentage = new Intl.NumberFormat("pl-PL", { style: "percent", maximumFractionDigits: 1 });
+const number = new Intl.NumberFormat(locale);
+const date = new Intl.DateTimeFormat(locale, { dateStyle: "short", timeStyle: "short" });
+const calendarDate = new Intl.DateTimeFormat(locale, { dateStyle: "medium", timeZone: "UTC" });
+const captureTime = new Intl.DateTimeFormat(locale, { dateStyle: "short", timeStyle: "medium" });
+const decimal = new Intl.NumberFormat(locale, { maximumFractionDigits: 2 });
+const percentage = new Intl.NumberFormat(locale, { style: "percent", maximumFractionDigits: 1 });
 const labels = {
-  idle: "Gotowy", running: "Pobieranie", scanning: "Skanowanie", stopping: "Zatrzymywanie",
-  stopped: "Zatrzymano", finished: "Zakończono", failed: "Błąd",
+  idle: t("Gotowy", "Ready"), running: t("Pobieranie", "Downloading"), scanning: t("Skanowanie", "Scanning"), stopping: t("Zatrzymywanie", "Stopping"),
+  stopped: t("Zatrzymano", "Stopped"), finished: t("Zakończono", "Finished"), failed: t("Błąd", "Error"),
 };
 const problems = {
-  auth: "Sesja iCloud wymaga ponownego logowania przez SSH.",
-  busy: "Inny proces korzysta z sesji tego konta.",
-  configuration: "Sprawdź konfigurację i dostęp do archiwum.",
-  cache: "Nie udało się zapisać wyników skanu.",
+  auth: t("Sesja iCloud wymaga ponownego logowania przez SSH.", "Sign in to iCloud again over SSH."),
+  busy: t("Inny proces korzysta z sesji tego konta.", "Another process is using this account's session."),
+  configuration: t("Sprawdź konfigurację i dostęp do archiwum.", "Check the configuration and archive access."),
+  cache: t("Nie udało się zapisać wyników skanu.", "Could not save scan results."),
 };
 
 let view = "downloaded";
@@ -66,7 +67,7 @@ function updateLibraryLayout() {
   if (galleryRange) {
     const label = calendarDate.formatRange(new Date(galleryRange.date_from), new Date(galleryRange.date_to));
     clearRange.textContent = `${label} ×`;
-    clearRange.setAttribute("aria-label", `Usuń zakres dat: ${label}`);
+    clearRange.setAttribute("aria-label", t(`Usuń zakres dat: ${label}`, `Clear date range: ${label}`));
   }
 }
 
@@ -122,7 +123,7 @@ async function getJson(path, options) {
   const response = await fetch(path, options);
   if (!response.ok) {
     const problem = await response.json().catch(() => ({}));
-    throw new Error(problem.error || `Żądanie nie powiodło się (${response.status}).`);
+    throw new Error(requestError(response.status, problem.error));
   }
   return response.json();
 }
@@ -137,7 +138,7 @@ function updateDateFields(canStart) {
   const byDate = limit.value === "dates";
   element("date-fields").hidden = !byDate;
   element("date-zone").hidden = !byDate;
-  element("date-zone").textContent = `Daty wykonania · ${dateZone}`;
+  element("date-zone").textContent = `${t("Daty wykonania", "Capture dates")} · ${dateZone}`;
   dateFrom.disabled = dateTo.disabled = !canStart || !byDate;
   dateTo.min = dateFrom.value;
   for (const button of datePresets) button.disabled = !canStart;
@@ -174,10 +175,10 @@ function updateControls() {
   limit.disabled = !canStart;
   updateDateFields(canStart);
   element("run").disabled = !canStart;
-  element("run").textContent = status === "stopped" && operation.job.action === "run" ? "Wznów pobieranie" : "Uruchom pobieranie";
+  element("run").textContent = status === "stopped" && operation.job.action === "run" ? t("Wznów pobieranie", "Resume download") : t("Uruchom pobieranie", "Start download");
   element("scan").disabled = !canWork;
   element("stop").disabled = sending || !["running", "scanning"].includes(status);
-  element("stop").textContent = status === "scanning" ? "Zatrzymaj skan" : "Zatrzymaj";
+  element("stop").textContent = status === "scanning" ? t("Zatrzymaj skan", "Stop scan") : t("Zatrzymaj", "Stop");
   updateMonthAction();
 }
 
@@ -193,9 +194,9 @@ function updateMonthAction() {
   const status = operation?.job.status;
   const active = ["running", "scanning", "stopping"].includes(status);
   let note = "";
-  if (sending || !operation) note = "Panel odczytuje stan zadania.";
-  else if (!operation.ready) note = "Archiwum jest niedostępne.";
-  else if (active) note = "Dla tego Apple ID trwa zadanie. Pobierz miesiąc po jego zakończeniu.";
+  if (sending || !operation) note = t("Panel odczytuje stan zadania.", "Checking job status.");
+  else if (!operation.ready) note = t("Archiwum jest niedostępne.", "The archive is unavailable.");
+  else if (active) note = t("Dla tego Apple ID trwa zadanie. Pobierz miesiąc po jego zakończeniu.", "This Apple ID has an active job. Download the month once it finishes.");
   monthDownload.disabled = !monthSelection || element("run").disabled;
   const message = element("month-menu-note");
   message.textContent = note;
@@ -207,7 +208,7 @@ function showMonthMenu(month, x, y) {
   if (!monthSelection) return;
   const { start, end } = monthSelection;
   const range = calendarDate.formatRange(new Date(start), new Date(end));
-  element("month-menu-range").textContent = `${range} · UTC · wszystkie typy plików`;
+  element("month-menu-range").textContent = `${range} · UTC · ${t("wszystkie typy plików", "all file types")}`;
   updateMonthAction();
   if (!monthMenu.matches(":popover-open")) monthMenu.showPopover();
   monthMenu.style.left = `${Math.max(8, Math.min(x, window.innerWidth - monthMenu.offsetWidth - 8))}px`;
@@ -215,15 +216,25 @@ function showMonthMenu(month, x, y) {
   (monthDownload.disabled ? monthMenu : monthDownload).focus();
 }
 
+function recentItems(count) {
+  const value = number.format(count);
+  return t(`${value} ostatnich pozycji`, `${value} most recent ${count === 1 ? "item" : "items"}`);
+}
+
+function itemCount(count) {
+  const value = number.format(count);
+  return t(`${value} pozycji`, `${value} ${count === 1 ? "item" : "items"}`);
+}
+
 function showJobStats(job) {
   const active = ["running", "scanning", "stopping"].includes(job?.status);
   const run = job?.action === "run";
   const limited = run && job.limit != null;
   element("progress").dataset.active = String(active);
-  element("job-workers").textContent = job ? `${Number(active)} z 1` : "—";
+  element("job-workers").textContent = job ? t(`${Number(active)} z 1`, `${Number(active)} of 1`) : "—";
   element("job-downloaded").textContent = run ? number.format(job.downloaded) : "—";
-  element("job-list-label").textContent = limited ? "Lista do sprawdzenia" : "Biblioteka iCloud";
-  element("job-list-size").textContent = job?.items != null ? `${number.format(job.items)} pozycji` : "—";
+  element("job-list-label").textContent = limited ? t("Lista do sprawdzenia", "Items to check") : t("Biblioteka iCloud", "iCloud library");
+  element("job-list-size").textContent = job?.items != null ? itemCount(job.items) : "—";
 
   let scope = "—";
   let timezone = "";
@@ -232,16 +243,16 @@ function showJobStats(job) {
     scope = calendarDate.formatRange(new Date(start), new Date(end));
     timezone = job.date_range.timezone;
   } else if (run) {
-    scope = limited ? `${number.format(job.limit)} ostatnich pozycji` : "Cała biblioteka";
+    scope = limited ? recentItems(job.limit) : t("Cała biblioteka", "Entire library");
   } else if (job?.action === "scan") {
-    scope = "Skan biblioteki";
+    scope = t("Skan biblioteki", "Library scan");
   }
   const scopeValue = element("job-scope");
   scopeValue.textContent = scope;
   scopeValue.title = timezone ? `${scope} (${timezone})` : scope;
 
   const filename = job?.current || job?.last || "";
-  element("job-file-label").textContent = job?.current ? "Pobierany plik" : job?.last ? "Ostatni plik" : "Plik";
+  element("job-file-label").textContent = job?.current ? t("Pobierany plik", "Current file") : job?.last ? t("Ostatni plik", "Last file") : t("Plik", "File");
   const file = element("job-file");
   file.textContent = filename || "—";
   file.title = filename;
@@ -251,27 +262,29 @@ function showActivity(data) {
   const { job, ready } = data;
   const status = element("status");
   status.dataset.state = ready ? job.status : "failed";
-  status.textContent = ready ? labels[job.status] : "Archiwum niedostępne";
+  status.textContent = ready ? labels[job.status] : t("Archiwum niedostępne", "Archive unavailable");
   showJobStats(job);
-  let detail = "Wybierz zakres i uruchom pobieranie. Wcześniejszy skan nie jest potrzebny.";
-  if (!ready) detail = "Sprawdź montowanie katalogu archiwum.";
+  let detail = t("Wybierz zakres i uruchom pobieranie. Wcześniejszy skan nie jest potrzebny.", "Choose a range and start the download. You can download without scanning first.");
+  if (!ready) detail = t("Sprawdź montowanie katalogu archiwum.", "Check the archive mount.");
   else if (job.status === "scanning") {
-    detail = job.items == null ? "Łączenie z iCloud przed skanem."
-      : `Skan iCloud · sprawdzono ${number.format(job.listed)} z ${number.format(job.items)} pozycji.`;
+    const checked = number.format(job.listed);
+    const total = itemCount(job.items);
+    detail = job.items == null ? t("Łączenie z iCloud przed skanem.", "Connecting to iCloud for the scan.")
+      : t(`Skan iCloud · sprawdzono ${checked} z ${total}.`, `iCloud scan · checked ${checked} of ${total}.`);
   }
-  else if (job.status === "stopping") detail = "Zatrzymywanie procesu.";
-  else if (job.status === "failed") detail = problems[job.issue] || "Proces zakończył się błędem. Sprawdź sesję iCloud.";
+  else if (job.status === "stopping") detail = t("Zatrzymywanie procesu.", "Stopping the worker.");
+  else if (job.status === "failed") detail = problems[job.issue] || t("Proces zakończył się błędem. Sprawdź sesję iCloud.", "The worker failed. Check your iCloud session.");
   else if (job.status === "finished" && job.action === "run" && !job.downloaded) {
-    detail = "Brak nowych plików w tym zakresie.";
-    if (job.limit || job.date_range) detail += " Możesz wybrać inny zakres.";
+    detail = t("Brak nowych plików w tym zakresie.", "No new files in this range.");
+    if (job.limit || job.date_range) detail += t(" Możesz wybrać inny zakres.", " You can choose another range.");
   }
   else if (job.status === "running") {
-    if (job.items == null) detail = "Łączenie z iCloud.";
-    else if (job.date_range) detail = "Sprawdzanie dat w bibliotece i pobieranie braków z wybranego zakresu.";
-    else detail = "Sprawdzanie i pobieranie brakujących plików.";
-  } else if (job.status === "finished") detail = job.action === "run" ? "Pobieranie zakończone."
-    : "Skan zakończony. Lista braków jest dostępna w zakładce Do pobrania.";
-  else if (job.status === "stopped") detail = "Możesz ponownie uruchomić skan lub pobieranie.";
+    if (job.items == null) detail = t("Łączenie z iCloud.", "Connecting to iCloud.");
+    else if (job.date_range) detail = t("Sprawdzanie dat w bibliotece i pobieranie braków z wybranego zakresu.", "Checking library dates and downloading missing files in the selected range.");
+    else detail = t("Sprawdzanie i pobieranie brakujących plików.", "Checking for and downloading missing files.");
+  } else if (job.status === "finished") detail = job.action === "run" ? t("Pobieranie zakończone.", "Download finished.")
+    : t("Skan zakończony. Lista braków jest dostępna w zakładce Do pobrania.", "Scan finished. See missing files in the Pending tab.");
+  else if (job.status === "stopped") detail = t("Możesz ponownie uruchomić skan lub pobieranie.", "You can start another scan or download.");
 
   element("activity").textContent = detail;
 }
@@ -280,7 +293,7 @@ function showLibraryCounts(data) {
   element("downloaded-count").textContent = number.format(data.downloaded);
   element("pending-count").textContent = data.pending === null ? "—" : number.format(data.pending);
   element("scope").textContent = layout.value === "gallery" && view === "downloaded" && data.downloaded
-    ? groupingEnabled() && groupInterval.value !== "0" ? "Kliknij grupę, aby zobaczyć jej pliki" : "Dwuklik otwiera podgląd"
+    ? groupingEnabled() && groupInterval.value !== "0" ? t("Kliknij grupę, aby zobaczyć jej pliki", "Click a group to see its files") : t("Dwuklik otwiera podgląd", "Double-click to preview")
     : "";
 }
 
@@ -290,26 +303,26 @@ function showStorage(data) {
     setBytes(element(`${key}-total`), metrics?.bytes, key === "cloud" && !metrics?.reported_at && data.scan?.unmeasured > 0);
     const info = element(`${key}-filtered`);
     info.hidden = !metrics || (!filtered && (metrics.filtered === null || metrics.bytes === metrics.filtered));
-    const label = filtered ? "Wybrane" : key === "cloud" && metrics?.reported_at ? "Dostępne do eksportu" : "Obrazy i filmy";
+    const label = filtered ? t("Wybrane", "Selected") : key === "cloud" && metrics?.reported_at ? t("Dostępne do eksportu", "Available to export") : t("Obrazy i filmy", "Images and videos");
     if (metrics) info.textContent = `${label}: ${bytes(metrics.filtered)}`;
   }
   const scope = element("cloud-scope");
   const details = [];
-  if (data.cloud?.reported_at) details.push(`Zajęte miejsce wg Apple · ${date.format(new Date(data.cloud.reported_at))}`);
-  if (data.scan?.complete) details.push(`Skan biblioteki głównej ${date.format(new Date(data.scan.time))}`);
-  else if (data.job.status === "scanning") details.push("Trwa odczyt rozmiarów plików i katalogów");
-  else details.push("Użyj „Skanuj iCloud”, aby odczytać rozmiary plików i katalogów");
-  if (data.scan?.unmeasured) details.push(`Brak rozmiaru: ${number.format(data.scan.unmeasured)} pozycji`);
+  if (data.cloud?.reported_at) details.push(`${t("Zajęte miejsce wg Apple", "Storage reported by Apple")} · ${date.format(new Date(data.cloud.reported_at))}`);
+  if (data.scan?.complete) details.push(`${t("Skan biblioteki głównej", "Main library scan")} · ${date.format(new Date(data.scan.time))}`);
+  else if (data.job.status === "scanning") details.push(t("Trwa odczyt rozmiarów plików i katalogów", "Scanning file and folder sizes"));
+  else details.push(t("Użyj „Skanuj iCloud”, aby odczytać rozmiary plików i katalogów", "Use Scan iCloud to read file and folder sizes"));
+  if (data.scan?.unmeasured) details.push(`${t("Brak rozmiaru", "Size unavailable")}: ${itemCount(data.scan.unmeasured)}`);
   scope.textContent = details.join(" · ");
 
   const signature = JSON.stringify(data.folders);
   if (signature === folderFingerprint) return;
   folderFingerprint = signature;
   const selected = folderFilter.value;
-  folderFilter.replaceChildren(new Option("Wszystkie katalogi", ""));
+  folderFilter.replaceChildren(new Option(t("Wszystkie katalogi", "All folders"), ""));
   const rows = [];
   for (const folder of data.folders) {
-    const name = folder.name === "." ? "Katalog główny" : folder.name;
+    const name = folder.name === "." ? t("Katalog główny", "Root folder") : folder.name;
     folderFilter.add(new Option(name, folder.name));
     const row = document.createElement("tr");
     const nameCell = document.createElement("td");
@@ -326,7 +339,7 @@ function showStorage(data) {
     const ratio = document.createElement("td");
     ratio.className = "folder-ratio";
     ratio.textContent = folder.cloud > 0 && folder.local != null ? percentage.format(folder.local / folder.cloud) : "—";
-    ratio.title = "Udział lokalnego rozmiaru w rozmiarze iCloud dla wybranego typu plików.";
+    ratio.title = t("Udział lokalnego rozmiaru w rozmiarze iCloud dla wybranego typu plików.", "Local size divided by iCloud size for the selected file type.");
     const actions = document.createElement("td");
     actions.className = "folder-action-cell";
     if (monthRange(folder.name)) {
@@ -335,7 +348,7 @@ function showStorage(data) {
       menuButton.type = "button";
       menuButton.className = "folder-actions";
       menuButton.textContent = "⋯";
-      menuButton.setAttribute("aria-label", `Akcje miesiąca ${folder.name}`);
+      menuButton.setAttribute("aria-label", t(`Akcje miesiąca ${folder.name}`, `Actions for ${folder.name}`));
       menuButton.setAttribute("aria-controls", "month-menu");
       menuButton.addEventListener("click", () => {
         const bounds = menuButton.getBoundingClientRect();
@@ -370,13 +383,13 @@ function showPreview(path, kind) {
   content.addEventListener("error", () => {
     if (element("preview").firstChild !== content) return;
     const message = document.createElement("p");
-    message.textContent = "Podgląd tego formatu jest niedostępny. Otwórz oryginał.";
+    message.textContent = t("Podgląd tego formatu jest niedostępny. Otwórz oryginał.", "Preview is unavailable for this format. Open the original file.");
     element("preview").replaceChildren(message);
   });
   element("filename").textContent = name;
   element("original").href = mediaUrl(path, "original");
   element("preview").replaceChildren(content);
-  element("close-viewer").setAttribute("aria-label", groupViewer.open ? "Wróć do grupy" : "Zamknij podgląd");
+  element("close-viewer").setAttribute("aria-label", groupViewer.open ? t("Wróć do grupy", "Back to group") : t("Zamknij podgląd", "Close preview"));
   viewer.showModal();
   viewer.requestFullscreen?.().catch(() => {});
 }
@@ -416,11 +429,12 @@ function renderAsset(path, size, kind, { open, count, timestamp } = {}) {
   thumb.append(image, type);
   if (count) {
     const badge = document.createElement("span");
-    const mediaLabel = kind === "video" ? "filmów" : "zdjęć";
+    const groupName = kind === "video" ? t("Grupa filmów", "Video group") : t("Grupa zdjęć", "Photo group");
+    const groupAction = kind === "video" ? t("Pokaż grupę filmów", "Open video group") : t("Pokaż grupę zdjęć", "Open photo group");
     badge.className = "group-count";
     badge.textContent = `×${number.format(count)}`;
-    asset.setAttribute("aria-label", `Pokaż grupę ${mediaLabel} (${number.format(count)})`);
-    name.textContent = `Grupa ${mediaLabel}`;
+    asset.setAttribute("aria-label", `${groupAction} (${number.format(count)})`);
+    name.textContent = groupName;
     thumb.append(badge);
   }
   asset.append(thumb, name, metadata);
@@ -451,8 +465,8 @@ function openGroup(path, kind) {
     timezone: browserZone, ...galleryQuery(),
   };
   element("group-items").replaceChildren();
-  element("group-title").textContent = kind === "video" ? "Filmy w grupie" : "Zdjęcia w grupie";
-  element("group-info").textContent = "Wczytywanie grupy…";
+  element("group-title").textContent = kind === "video" ? t("Filmy w grupie", "Videos in group") : t("Zdjęcia w grupie", "Photos in group");
+  element("group-info").textContent = t("Wczytywanie grupy…", "Loading group…");
   element("group-more").hidden = true;
   groupViewer.showModal();
   loadGroup();
@@ -467,8 +481,8 @@ async function loadGroup() {
     const data = await getJson(`/api/group?${new URLSearchParams(request)}`);
     if (openGroupRequest !== request) return;
     const kind = request.media;
-    const mediaLabel = kind === "video" ? "filmów" : "zdjęć";
-    element("group-info").textContent = `Liczba ${mediaLabel} ${number.format(data.count)} · ${captureTime.formatRange(data.oldest * 1000, data.newest * 1000)}`;
+    const label = kind === "video" ? t("Liczba filmów", "Videos") : t("Liczba zdjęć", "Photos");
+    element("group-info").textContent = `${label}: ${number.format(data.count)} · ${captureTime.formatRange(data.oldest * 1000, data.newest * 1000)}`;
     element("group-items").append(...data.paths.map((path) => renderAsset(path, data.sizes[path], kind, {
       open: () => showPreview(path, kind),
       timestamp: data.timestamps[path],
@@ -507,14 +521,14 @@ function showItems(data) {
   element("page-count").textContent = `/ ${number.format(pages)}`;
   element("grouping-control").hidden = !groupingEnabled();
   const grouped = groupingEnabled() && groupInterval.value !== "0";
-  element("page-size-label").textContent = grouped ? "Kafle na stronę" : "Pliki na stronę";
+  element("page-size-label").textContent = grouped ? t("Kafle na stronę", "Tiles per page") : t("Pliki na stronę", "Files per page");
   const datesUnavailable = view === "pending" && data.scan && !data.scan.dated;
   const results = element("gallery-result-count");
   results.hidden = !galleryRange || datesUnavailable || (view === "pending" && data.pending === null);
-  results.textContent = `${grouped ? "Kafle" : "Pliki"}: ${number.format(data.total)}`;
+  results.textContent = `${grouped ? t("Kafle", "Tiles") : t("Pliki", "Files")}: ${number.format(data.total)}`;
   const dateNote = element("gallery-date-note");
   dateNote.hidden = !datesUnavailable || (!galleryRange && sortBy.value !== "date");
-  dateNote.textContent = "Ten skan nie zawiera dat wykonania. Użyj „Skanuj iCloud”, aby je odczytać.";
+  dateNote.textContent = t("Ten skan nie zawiera dat wykonania. Użyj „Skanuj iCloud”, aby je odczytać.", "This scan has no capture dates. Use Scan iCloud to fetch them.");
 
   const key = JSON.stringify([account.value, view, galleryRange, page, data.paths, data.sizes, data.timestamps,
     data.groups, data.pending === null, data.ready, datesUnavailable]);
@@ -537,10 +551,10 @@ function showItems(data) {
   } else {
     const empty = document.createElement("p");
     empty.className = "empty";
-    empty.textContent = view === "pending" && data.pending === null ? "Uruchom skan, aby zobaczyć pliki do pobrania."
-      : galleryRange ? "Brak plików w wybranym zakresie dat."
-      : view === "downloaded" ? "Brak pobranych plików."
-      : "Skan nie znalazł brakujących plików w wybranym zakresie.";
+    empty.textContent = view === "pending" && data.pending === null ? t("Uruchom skan, aby zobaczyć pliki do pobrania.", "Run a scan to see files available to download.")
+      : galleryRange ? t("Brak plików w wybranym zakresie dat.", "No files in the selected date range.")
+      : view === "downloaded" ? t("Brak pobranych plików.", "No downloaded files.")
+      : t("Skan nie znalazł brakujących plików w wybranym zakresie.", "The scan found no missing files in this range.");
     gallery.replaceChildren(empty);
   }
 }
@@ -563,8 +577,8 @@ async function refresh() {
     showStorage(data);
     if (calendar) {
       let note = "";
-      if (!data.ready) note = "Archiwum jest niedostępne.";
-      else if (data.calendar === null) note = "Użyj „Skanuj iCloud”, aby odczytać daty brakujących plików.";
+      if (!data.ready) note = t("Archiwum jest niedostępne.", "The archive is unavailable.");
+      else if (data.calendar === null) note = t("Użyj „Skanuj iCloud”, aby odczytać daty brakujących plików.", "Use Scan iCloud to fetch capture dates for missing files.");
       mediaCalendar.render(data.calendar, note, mediaFilter.value);
     } else {
       showItems(data);
@@ -572,7 +586,8 @@ async function refresh() {
     showError("", "library-error");
   } catch (error) {
     if (current !== requestId) return;
-    showError(`Nie udało się odświeżyć biblioteki: ${error.message}`, "library-error");
+    showError(t(`Nie udało się odświeżyć biblioteki: ${error.message}`,
+      `Could not refresh the library: ${error.message}`), "library-error");
   } finally {
     if (current === requestId) loadingGallery = false;
   }
@@ -597,9 +612,9 @@ async function refreshActivity() {
     if (current !== activityId) return;
     const status = element("status");
     status.dataset.state = "failed";
-    status.textContent = "Brak stanu";
+    status.textContent = t("Brak stanu", "Status unavailable");
     showJobStats();
-    element("activity").textContent = "Nie udało się odczytać stanu pobierania. Panel ponowi próbę.";
+    element("activity").textContent = t("Nie udało się odczytać stanu pobierania. Panel ponowi próbę.", "Could not read the download status. Retrying.");
     operation = undefined;
   } finally {
     if (current === activityId) {
@@ -700,7 +715,7 @@ account.addEventListener("change", () => {
   showError("", "library-error");
   const status = element("status");
   status.dataset.state = "idle";
-  status.textContent = "Łączenie";
+  status.textContent = t("Łączenie", "Connecting");
   showJobStats();
   element("activity").textContent = "";
   updateControls();
@@ -741,7 +756,7 @@ clearRange.addEventListener("click", () => {
 function limitOption(value) {
   const optionValue = value === null ? "" : String(value);
   if (![...limit.options].some((option) => option.value === optionValue)) {
-    limit.add(new Option(`${optionValue} ostatnich pozycji`, optionValue), 0);
+    limit.add(new Option(recentItems(value), optionValue), 0);
   }
   return optionValue;
 }
@@ -758,14 +773,15 @@ function selectJobScope(job) {
 }
 
 async function initialize() {
+  localizeDocument();
   chooseRecentDays(1);
   updateLibraryLayout();
   try {
     const settings = await getJson("/api/accounts");
     for (const name of settings.accounts) account.add(new Option(name, name));
     if (!settings.accounts.length) {
-      element("status").textContent = "Brak konta";
-      element("activity").textContent = "Skonfiguruj Apple ID i zaloguj się przez SSH.";
+      element("status").textContent = t("Brak konta", "No account");
+      element("activity").textContent = t("Skonfiguruj Apple ID i zaloguj się przez SSH.", "Configure your Apple ID and sign in over SSH.");
       return;
     }
     account.disabled = false;

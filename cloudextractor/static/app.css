@@ -28,11 +28,13 @@ button:disabled, select:disabled, input:disabled { cursor: default; opacity: .48
 .top { background: #111e36; color: #fff; }
 .top-inner, main { max-width: 1320px; margin: 0 auto; padding-inline: clamp(18px, 4vw, 54px); }
 .top-inner { min-height: 66px; display: flex; align-items: center; justify-content: space-between; gap: 16px; }
+.top-actions { display: flex; align-items: center; flex-wrap: wrap; gap: 8px 14px; }
 .brand { color: inherit; text-decoration: none; font-size: 1.2rem; font-weight: 750; letter-spacing: -.05em; }
 .brand span { color: #9bbdff; }
 .account, .limit { display: flex; align-items: center; gap: 10px; font-size: .82rem; font-weight: 650; }
 .account { color: #b9c9e5; }
 .account select { background: #20304d; color: #fff; border-color: #455775; max-width: min(40vw, 360px); }
+.language-picker { background: #20304d; color: #fff; border-color: #455775; min-height: 36px; }
 
 main { padding-block: 36px 56px; }
 .control, .library { background: #fff; border: 1px solid var(--border); border-radius: 14px; }

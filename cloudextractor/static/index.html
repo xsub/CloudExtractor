@@ -11,101 +11,107 @@
   <header class="top">
     <div class="top-inner">
       <a class="brand" href="/">Cloud<span>Extractor</span></a>
-      <label class="account">Apple ID <select id="account" disabled></select></label>
+      <div class="top-actions">
+        <label class="account">Apple ID <select id="account" disabled></select></label>
+        <select id="language" class="language-picker" aria-label="Język" data-en-label="Language">
+          <option value="pl" lang="pl">Polski</option>
+          <option value="en" lang="en">English</option>
+        </select>
+      </div>
     </div>
   </header>
 
   <main>
     <section class="control" aria-labelledby="control-heading">
       <div class="control-heading">
-        <h1 id="control-heading">Pobieranie iCloud</h1>
-        <span id="status" class="status" role="status">Łączenie</span>
+        <h1 id="control-heading" data-en="iCloud downloads">Pobieranie iCloud</h1>
+        <span id="status" class="status" role="status" data-en="Connecting">Łączenie</span>
       </div>
       <div class="progress" id="progress" aria-hidden="true"></div>
-      <dl class="job-stats" aria-label="Postęp zadania">
-        <div><dt>Workery konta</dt><dd id="job-workers">—</dd></div>
-        <div><dt>Pobrane pliki</dt><dd id="job-downloaded">—</dd></div>
-        <div><dt id="job-list-label">Biblioteka iCloud</dt><dd id="job-list-size">—</dd></div>
-        <div><dt>Zakres zadania</dt><dd id="job-scope">—</dd></div>
+      <dl class="job-stats" aria-label="Postęp zadania" data-en-label="Job progress">
+        <div><dt data-en="Account workers">Workery konta</dt><dd id="job-workers">—</dd></div>
+        <div><dt data-en="Downloaded files">Pobrane pliki</dt><dd id="job-downloaded">—</dd></div>
+        <div><dt id="job-list-label" data-en="iCloud library">Biblioteka iCloud</dt><dd id="job-list-size">—</dd></div>
+        <div><dt data-en="Job scope">Zakres zadania</dt><dd id="job-scope">—</dd></div>
       </dl>
       <p class="activity" id="activity" aria-live="polite"></p>
       <div class="job-file">
-        <span id="job-file-label">Plik</span>
+        <span id="job-file-label" data-en="File">Plik</span>
         <span class="job-file-name" id="job-file">—</span>
       </div>
       <div class="controls">
-        <label class="limit">Zakres
+        <label class="limit"><span data-en="Scope">Zakres</span>
           <select id="limit" disabled>
-            <option value="dates">Według dat</option>
-            <option value="20">20 ostatnich pozycji</option>
-            <option value="50">50 ostatnich pozycji</option>
-            <option value="100">100 ostatnich pozycji</option>
-            <option value="500">500 ostatnich pozycji</option>
-            <option value="1000">1000 ostatnich pozycji</option>
-            <option value="">Cała biblioteka</option>
+            <option value="dates" data-en="By date">Według dat</option>
+            <option value="20" data-en="20 most recent items">20 ostatnich pozycji</option>
+            <option value="50" data-en="50 most recent items">50 ostatnich pozycji</option>
+            <option value="100" data-en="100 most recent items">100 ostatnich pozycji</option>
+            <option value="500" data-en="500 most recent items">500 ostatnich pozycji</option>
+            <option value="1000" data-en="1000 most recent items">1000 ostatnich pozycji</option>
+            <option value="" data-en="Entire library">Cała biblioteka</option>
           </select>
         </label>
         <div class="controls" id="date-fields">
-          <label class="limit">Od <input id="date-from" type="date" aria-describedby="date-zone" required disabled></label>
-          <label class="limit">Do <input id="date-to" type="date" aria-describedby="date-zone" required disabled></label>
+          <label class="limit"><span data-en="From">Od</span> <input id="date-from" type="date" aria-describedby="date-zone" required disabled></label>
+          <label class="limit"><span data-en="To">Do</span> <input id="date-to" type="date" aria-describedby="date-zone" required disabled></label>
         </div>
-        <div class="date-presets" role="group" aria-label="Szybki wybór zakresu dat">
-          <button type="button" data-days="1" disabled>Dziś</button>
-          <button type="button" data-days="7" disabled>7 dni</button>
-          <button type="button" data-days="30" disabled>30 dni</button>
+        <div class="date-presets" role="group" aria-label="Szybki wybór zakresu dat" data-en-label="Date range presets">
+          <button type="button" data-days="1" disabled data-en="Today">Dziś</button>
+          <button type="button" data-days="7" disabled data-en="7 days">7 dni</button>
+          <button type="button" data-days="30" disabled data-en="30 days">30 dni</button>
         </div>
       </div>
       <p class="date-zone" id="date-zone"></p>
       <div class="controls job-actions">
-        <button class="primary" id="run" disabled>Uruchom pobieranie</button>
-        <button id="stop" class="stop" disabled>Zatrzymaj</button>
-        <button id="scan" disabled>Skanuj iCloud</button>
+        <button class="primary" id="run" disabled data-en="Start download">Uruchom pobieranie</button>
+        <button id="stop" class="stop" disabled data-en="Stop">Zatrzymaj</button>
+        <button id="scan" disabled data-en="Scan iCloud">Skanuj iCloud</button>
       </div>
       <p id="error" class="error" role="alert" hidden></p>
     </section>
 
     <section class="library" aria-labelledby="library-heading">
       <div class="library-heading">
-        <h2 id="library-heading">Biblioteka</h2>
+        <h2 id="library-heading" data-en="Library">Biblioteka</h2>
         <p id="scope"></p>
       </div>
       <p id="library-error" class="error" role="status" hidden></p>
-      <div class="storage-summary" aria-label="Łączne rozmiary biblioteki">
+      <div class="storage-summary" aria-label="Łączne rozmiary biblioteki" data-en-label="Library storage totals">
         <div class="storage-card">
-          <span>iCloud Photos · razem</span>
+          <span data-en="iCloud Photos · total">iCloud Photos · razem</span>
           <strong id="cloud-total">—</strong>
           <p id="cloud-scope"></p>
           <p id="cloud-filtered" hidden></p>
         </div>
         <div class="storage-card">
-          <span>Lokalne archiwum · razem</span>
+          <span data-en="Local archive · total">Lokalne archiwum · razem</span>
           <strong id="local-total">—</strong>
           <p id="local-filtered" hidden></p>
         </div>
       </div>
       <div class="filters">
-        <label>Typ pliku
+        <label><span data-en="File type">Typ pliku</span>
           <select id="media-filter">
-            <option value="both">Obrazy i filmy</option>
-            <option value="image">Obrazy</option>
-            <option value="video">Filmy</option>
+            <option value="both" data-en="Images and videos">Obrazy i filmy</option>
+            <option value="image" data-en="Images">Obrazy</option>
+            <option value="video" data-en="Videos">Filmy</option>
           </select>
         </label>
-        <label>Katalog
-          <select id="folder-filter"><option value="">Wszystkie katalogi</option></select>
+        <label><span data-en="Folder">Katalog</span>
+          <select id="folder-filter"><option value="" data-en="All folders">Wszystkie katalogi</option></select>
         </label>
       </div>
       <details class="folder-summary">
-        <summary>Rozmiary katalogów</summary>
+        <summary data-en="Folder sizes">Rozmiary katalogów</summary>
         <div class="folder-table">
-          <table aria-label="Rozmiary katalogów dla wybranego typu plików">
+          <table aria-label="Rozmiary katalogów dla wybranego typu plików" data-en-label="Folder sizes for the selected file type">
             <thead>
               <tr>
-                <th scope="col">Katalog</th>
+                <th scope="col" data-en="Folder">Katalog</th>
                 <th scope="col">iCloud</th>
-                <th scope="col">Lokalnie</th>
-                <th scope="col">Lokalnie / iCloud</th>
-                <th scope="col" aria-label="Akcje"></th>
+                <th scope="col" data-en="Local">Lokalnie</th>
+                <th scope="col" data-en="Local / iCloud">Lokalnie / iCloud</th>
+                <th scope="col" aria-label="Akcje" data-en-label="Actions"></th>
               </tr>
             </thead>
             <tbody id="folder-sizes"></tbody>
@@ -113,73 +119,73 @@
         </div>
       </details>
       <div class="library-nav">
-        <div class="tabs" role="tablist" aria-label="Źródło plików">
-          <button id="tab-downloaded" role="tab" aria-controls="library-content" aria-selected="true" data-view="downloaded">Pobrane <span id="downloaded-count">—</span></button>
-          <button id="tab-pending" role="tab" aria-controls="library-content" aria-selected="false" data-view="pending">Do pobrania <span id="pending-count">—</span></button>
+        <div class="tabs" role="tablist" aria-label="Źródło plików" data-en-label="File source">
+          <button id="tab-downloaded" role="tab" aria-controls="library-content" aria-selected="true" data-view="downloaded"><span data-en="Downloaded">Pobrane</span> <span id="downloaded-count">—</span></button>
+          <button id="tab-pending" role="tab" aria-controls="library-content" aria-selected="false" data-view="pending"><span data-en="Pending">Do pobrania</span> <span id="pending-count">—</span></button>
         </div>
-        <label class="layout-picker">Widok
+        <label class="layout-picker"><span data-en="View">Widok</span>
           <select id="library-layout">
-            <option value="gallery">Galeria</option>
-            <option value="calendar">Kalendarz</option>
+            <option value="gallery" data-en="Gallery">Galeria</option>
+            <option value="calendar" data-en="Calendar">Kalendarz</option>
           </select>
         </label>
       </div>
       <div id="library-content" role="tabpanel" aria-labelledby="tab-downloaded">
         <div id="gallery-tools" class="gallery-tools">
           <div class="view-options">
-            <label>Sortuj według
+            <label><span data-en="Sort by">Sortuj według</span>
               <select id="gallery-sort">
-                <option value="date">Daty wykonania</option>
-                <option value="size">Rozmiaru</option>
-                <option value="type">Typu (obraz / film)</option>
-                <option value="format">Formatu</option>
-                <option value="name">Nazwy pliku</option>
+                <option value="date" data-en="Capture date">Daty wykonania</option>
+                <option value="size" data-en="Size">Rozmiaru</option>
+                <option value="type" data-en="Type (image / video)">Typu (obraz / film)</option>
+                <option value="format" data-en="Format">Formatu</option>
+                <option value="name" data-en="File name">Nazwy pliku</option>
               </select>
             </label>
-            <label>Kolejność
+            <label><span data-en="Order">Kolejność</span>
               <select id="gallery-order">
-                <option value="desc">Malejąco</option>
-                <option value="asc">Rosnąco</option>
+                <option value="desc" data-en="Descending">Malejąco</option>
+                <option value="asc" data-en="Ascending">Rosnąco</option>
               </select>
             </label>
-            <label><span id="page-size-label">Pliki na stronę</span>
+            <label><span id="page-size-label" data-en="Files per page">Pliki na stronę</span>
               <select id="page-size">
                 <option value="20">20</option>
                 <option value="50" selected>50</option>
                 <option value="100">100</option>
               </select>
             </label>
-            <label id="grouping-control">Grupowanie według czasu
+            <label id="grouping-control"><span data-en="Group by time">Grupowanie według czasu</span>
               <select id="group-interval">
-                <option value="0">Wyłączone</option>
-                <option value="2">Odstęp do 2 s</option>
-                <option value="5">Odstęp do 5 s</option>
-                <option value="10">Odstęp do 10 s</option>
-                <option value="30">Odstęp do 30 s</option>
-                <option value="45">Odstęp do 45 s</option>
-                <option value="60">Odstęp do 60 s</option>
-                <option value="90">Odstęp do 90 s</option>
-                <option value="180">Odstęp do 180 s</option>
+                <option value="0" data-en="Off">Wyłączone</option>
+                <option value="2" data-en="Up to 2 s apart">Odstęp do 2 s</option>
+                <option value="5" data-en="Up to 5 s apart">Odstęp do 5 s</option>
+                <option value="10" data-en="Up to 10 s apart">Odstęp do 10 s</option>
+                <option value="30" data-en="Up to 30 s apart">Odstęp do 30 s</option>
+                <option value="45" data-en="Up to 45 s apart">Odstęp do 45 s</option>
+                <option value="60" data-en="Up to 60 s apart">Odstęp do 60 s</option>
+                <option value="90" data-en="Up to 90 s apart">Odstęp do 90 s</option>
+                <option value="180" data-en="Up to 180 s apart">Odstęp do 180 s</option>
               </select>
             </label>
           </div>
-          <nav id="pagination" class="pagination" aria-label="Strony plików">
-            <button id="previous" aria-label="Poprzednia strona" disabled>←</button>
+          <nav id="pagination" class="pagination" aria-label="Strony plików" data-en-label="File pages">
+            <button id="previous" aria-label="Poprzednia strona" data-en-label="Previous page" disabled>←</button>
             <form id="page-jump">
-              <label for="page-number">Strona</label>
+              <label for="page-number" data-en="Page">Strona</label>
               <input type="number" id="page-number" value="1" min="1" step="1" inputmode="numeric" required>
               <span id="page-count">/ 1</span>
-              <button type="submit">Przejdź</button>
+              <button type="submit" data-en="Go">Przejdź</button>
             </form>
-            <button id="next" aria-label="Następna strona" disabled>→</button>
+            <button id="next" aria-label="Następna strona" data-en-label="Next page" disabled>→</button>
           </nav>
           <div class="gallery-scope">
             <details id="gallery-date-filter">
-              <summary>Zakres dat</summary>
+              <summary data-en="Date range">Zakres dat</summary>
               <form id="gallery-date-form">
-                <label>Od <input id="gallery-date-from" type="date" required></label>
-                <label>Do <input id="gallery-date-to" type="date" required></label>
-                <button type="submit">Zastosuj</button>
+                <label><span data-en="From">Od</span> <input id="gallery-date-from" type="date" required></label>
+                <label><span data-en="To">Do</span> <input id="gallery-date-to" type="date" required></label>
+                <button type="submit" data-en="Apply">Zastosuj</button>
               </form>
             </details>
             <button type="button" id="clear-range" hidden></button>
@@ -188,9 +194,9 @@
           </div>
         </div>
         <div id="items" class="gallery"></div>
-        <section id="calendar-panel" class="calendar-panel" aria-label="Kalendarz plików" hidden>
+        <section id="calendar-panel" class="calendar-panel" aria-label="Kalendarz plików" data-en-label="Media calendar" hidden>
           <div class="calendar-toolbar">
-            <label class="layout-picker">Liczba miesięcy
+            <label class="layout-picker"><span data-en="Months">Liczba miesięcy</span>
               <select id="calendar-size">
                 <option value="1">1</option>
                 <option value="3" selected>3</option>
@@ -198,12 +204,12 @@
                 <option value="12">12</option>
               </select>
             </label>
-            <div class="calendar-nav" aria-label="Nawigacja kalendarza">
-              <button type="button" id="calendar-previous" aria-label="Starsze miesiące">←</button>
-              <button type="button" id="calendar-today">Bieżący miesiąc</button>
-              <button type="button" id="calendar-next" aria-label="Nowsze miesiące" disabled>→</button>
+            <div class="calendar-nav" aria-label="Nawigacja kalendarza" data-en-label="Calendar navigation">
+              <button type="button" id="calendar-previous" aria-label="Starsze miesiące" data-en-label="Older months">←</button>
+              <button type="button" id="calendar-today" data-en="Current month">Bieżący miesiąc</button>
+              <button type="button" id="calendar-next" aria-label="Nowsze miesiące" data-en-label="Newer months" disabled>→</button>
             </div>
-            <span class="calendar-legend"><strong>I</strong> obrazy · <strong>V</strong> filmy</span>
+            <span class="calendar-legend"><strong>I</strong> <span data-en="images">obrazy</span> · <strong>V</strong> <span data-en="videos">filmy</span></span>
           </div>
           <p id="calendar-period" class="calendar-period" role="status"></p>
           <p id="calendar-note" class="calendar-note" hidden></p>
@@ -213,29 +219,29 @@
     </section>
   </main>
 
-  <div id="month-menu" class="month-menu" popover role="group" aria-label="Akcje miesiąca" tabindex="-1">
+  <div id="month-menu" class="month-menu" popover role="group" aria-label="Akcje miesiąca" data-en-label="Month actions" tabindex="-1">
     <p id="month-menu-range"></p>
-    <button type="button" id="month-download" disabled>Pobierz miesiąc</button>
+    <button type="button" id="month-download" disabled data-en="Download month">Pobierz miesiąc</button>
     <p id="month-menu-note" class="month-menu-note" hidden></p>
   </div>
 
   <dialog id="group-viewer" class="group-dialog" aria-labelledby="group-title">
     <header class="group-header">
       <div>
-        <h2 id="group-title">Pliki w grupie</h2>
+        <h2 id="group-title" data-en="Files in group">Pliki w grupie</h2>
         <p id="group-info" aria-live="polite"></p>
       </div>
-      <button type="button" id="close-group" aria-label="Zamknij grupę">×</button>
+      <button type="button" id="close-group" aria-label="Zamknij grupę" data-en-label="Close group">×</button>
     </header>
     <div id="group-items" class="gallery"></div>
-    <footer class="group-footer"><button type="button" id="group-more" hidden>Wczytaj kolejne zdjęcia</button></footer>
+    <footer class="group-footer"><button type="button" id="group-more" hidden data-en="Load more">Wczytaj więcej</button></footer>
   </dialog>
 
   <dialog id="viewer" aria-labelledby="filename">
     <header class="viewer-header">
       <div id="filename"></div>
-      <a id="original" download>Oryginał</a>
-      <button id="close-viewer" aria-label="Zamknij podgląd">×</button>
+      <a id="original" download data-en="Original">Oryginał</a>
+      <button id="close-viewer" aria-label="Zamknij podgląd" data-en-label="Close preview">×</button>
     </header>
     <div id="preview" class="preview"></div>
   </dialog>

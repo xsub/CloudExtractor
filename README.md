@@ -1,12 +1,14 @@
 # CloudExtractor
 
-CloudExtractor zapisuje oryginały zdjęć i filmów na własnym storage. Pierwszy adapter korzysta z `icloudpd` 1.33.0 i działa w kontenerze na Linuksie. Udział z OpenBSD lub innego serwera montujesz na hoście Linuksa, a Docker Compose przekazuje jego katalog do kontenera.
+[Polska dokumentacja](README.pl.md)
 
-Repozytorium zawiera szablon `.env.example` z pustym adresem konta Apple. Każdy host ma własny `.env` i katalog `.state/` z sesją. Git ignoruje te pliki i katalogi.
+CloudExtractor archives original photos and videos on storage you control. The first adapter uses `icloudpd` 1.33.0 in a Linux container. Mount the share from OpenBSD or another server on the Linux host, then use Docker Compose to make the mounted directory available to the container.
 
-## Konfiguracja na Linuksie
+The repository includes an `.env.example` template with the Apple account field left blank. Each host uses its own `.env` and keeps its session in `.state/`. Git ignores both.
 
-Potrzebujesz Docker Engine, Docker Compose i zamontowanego udziału. Użyj osobnego katalogu archiwum i nadaj użytkownikowi kontenera prawo zapisu. Na przykład dla udziału zamontowanego w `/mnt/storage`:
+## Set up on Linux
+
+Install Docker Engine and Docker Compose, then mount the share. Use a dedicated archive directory and give the container user write access. For a share mounted at `/mnt/storage`, run the following commands.
 
 ```sh
 mountpoint /mnt/storage &&
@@ -14,7 +16,7 @@ mountpoint /mnt/storage &&
   touch /mnt/storage/cloudextractor/icloud/.cloudextractor-archive
 ```
 
-Znacznik `.cloudextractor-archive` utwórz na zamontowanym udziale. Konfiguracja Compose wyłącza tworzenie ścieżki źródłowej bind mountu. Jeśli kontener mimo to dostanie pusty katalog zastępczy, kontrola znacznika zatrzyma eksport przed zapisem.
+Create the `.cloudextractor-archive` marker on the mounted share. The Compose bind mount requires its source directory to exist. If the container receives an empty fallback directory, the marker check stops the export before it writes any media.
 
 ```sh
 cp .env.example .env
@@ -23,22 +25,22 @@ id -u
 id -g
 ```
 
-W `.env` ustaw `ARCHIVE_HOST_PATH` na pełną ścieżkę katalogu ze znacznikiem, wpisz adres konta Apple w `ICLOUD_USERNAME` i dopasuj `CLOUDEXTRACTOR_UID` oraz `CLOUDEXTRACTOR_GID` do użytkownika z dostępem do archiwum i katalogu sesji. `STATE_HOST_PATH` wskazuje prywatny katalog sesji na lokalnym dysku Linuksa. Jeśli go zmienisz, utwórz wskazany katalog z uprawnieniami `0700`.
+In `.env`, set `ARCHIVE_HOST_PATH` to the absolute path of the directory containing the marker. Set `ICLOUD_USERNAME` to your Apple account email and set `CLOUDEXTRACTOR_UID` and `CLOUDEXTRACTOR_GID` to match a user with access to the archive and session directories. `STATE_HOST_PATH` points to a private session directory on the Linux host. If you change it, create the new directory with mode `0700`.
 
-Jeśli konto korzysta z Zaawansowanej ochrony danych (ADP), ustaw `ICLOUD_ADP_WEB_ACCESS=true`, włącz dostęp do danych iCloud przez WWW i zaakceptuj prośbę Apple na zaufanym urządzeniu podczas logowania. [Dokumentacja uwierzytelniania `icloudpd`](https://icloud-photos-downloader.github.io/icloud_photos_downloader/authentication.html)
+If the account uses Advanced Data Protection (ADP), set `ICLOUD_ADP_WEB_ACCESS=true`, enable web access to iCloud data, and approve Apple's request on a trusted device during sign-in. [icloudpd authentication documentation](https://icloud-photos-downloader.github.io/icloud_photos_downloader/authentication.html)
 
-## Lokalna próba na laptopie
+## Test locally on a laptop
 
-Jeśli uruchamiasz kontenery linuksowe na laptopie, możesz trzymać próbkę w ignorowanym katalogu `.state/archive`.
+When running Linux containers on a laptop, you can store a sample in the ignored `.state/archive` directory.
 
 ```sh
 install -d -m 0700 .state/icloud .state/archive
 touch .state/archive/.cloudextractor-archive
 ```
 
-W lokalnym `.env` ustaw `ARCHIVE_HOST_PATH=./.state/archive`, wpisz adres konta Apple i dopasuj UID oraz GID do właściciela katalogów widocznego w kontenerze.
+In your local `.env`, set `ARCHIVE_HOST_PATH=./.state/archive`, enter your Apple account email, and set the UID and GID to match the directory owner as seen by the container.
 
-## Pierwsze uruchomienie
+## Run the first export
 
 ```sh
 docker compose build
@@ -47,59 +49,59 @@ docker compose run --rm extractor auth
 ICLOUD_RECENT=20 docker compose run --rm -T extractor run
 ```
 
-Polecenie `check` testuje docelowy katalog i dostęp do katalogu stanu bez połączenia z Apple. W `auth` podajesz hasło i potwierdzasz 2FA w terminalu. Kontener zachowuje sesję w prywatnym katalogu stanu. Po wygaśnięciu sesji ponownie uruchom `auth`.
+The `check` command tests the destination and access to the state directory without connecting to Apple. With `auth`, enter your password and complete two-factor authentication in the terminal. The container saves the session in its private state directory. Run `auth` again when the session expires.
 
-Po sprawdzeniu próbki uruchom pełny eksport z pustym `ICLOUD_RECENT`:
+After verifying the sample, leave `ICLOUD_RECENT` empty and run the full export.
 
 ```sh
 docker compose run --rm -T extractor run
 ```
 
-Archiwum działa zawsze w trybie **APPEND**. Panel i CLI dopisują wyłącznie brakujące pliki. Archiwum zachowuje już pobrane zdjęcia i filmy po ich usunięciu z iCloud.
+The archive always runs in **APPEND** mode. The dashboard and CLI add missing files and retain existing copies after their originals are deleted from iCloud.
 
-Archiwum używa katalogów `<Apple ID>/rok/miesiąc` w UTC oraz nazw z identyfikatorem zasobu iCloud. Eksport obejmuje oryginały, część wideo Live Photo i dostępną alternatywną reprezentację zasobu, np. parę RAW+JPEG. Po przerwaniu uruchom `run` ponownie z tą samą konfiguracją.
+The archive uses `<Apple ID>/year/month` folders based on UTC and file names that include the iCloud asset identifier. The export includes originals, Live Photo video components, and available alternate representations such as RAW+JPEG pairs. If a run is interrupted, start `run` again with the same settings.
 
-Przed odłączeniem iCloud trzeba zweryfikować kompletność osobno, w tym zakres zbiorów udostępnionych i wersje po edycji. `check` potwierdza dostępność miejsca zapisu.
+Verify the archive independently before disconnecting iCloud, including coverage of shared collections and edited versions. The `check` command confirms that the destination is writable.
 
-## Wiele kont Apple
+## Multiple Apple accounts
 
-Każde uruchomienie obsługuje konto wskazane w `ICLOUD_USERNAME`. Konta mają osobne katalogi archiwum, sesje i blokady. Nazwa podkatalogu to adres konta zapisany małymi literami. Aby uwierzytelnić i przetestować kolejne konto, podstaw jego adres w obu poleceniach:
+Each run uses the account specified in `ICLOUD_USERNAME`. Accounts have separate archive directories, sessions, and locks. The account subdirectory is named after its lowercase email address. To authenticate and test another account, substitute its email in both commands.
 
 ```sh
-ICLOUD_USERNAME=drugie-konto@example.com docker compose run --rm extractor auth
-ICLOUD_USERNAME=drugie-konto@example.com ICLOUD_RECENT=20 docker compose run --rm -T extractor run
+ICLOUD_USERNAME=second-account@example.com docker compose run --rm extractor auth
+ICLOUD_USERNAME=second-account@example.com ICLOUD_RECENT=20 docker compose run --rm -T extractor run
 ```
 
-Przy aktualizacji z wersji jednokontowej zatrzymaj kontener i przenieś katalogi lat oraz pliki sesji do podkatalogu dotychczasowego Apple ID w ich katalogach nadrzędnych. Znacznik `.cloudextractor-archive` pozostaje w katalogu głównym archiwum.
+When upgrading from the single-account version, stop the container and move the year folders and session files into a subdirectory named after the existing Apple ID, under their respective parent directories. Keep the `.cloudextractor-archive` marker at the archive root.
 
-## Panel pobierania i galerii
+## Download dashboard and gallery
 
-Na hoście Linuksa uruchom `docker compose up -d --build ui` z katalogu instalacji. Na laptopie otwórz tunel, podstawiając adres lub alias SSH hosta:
+Run `docker compose up -d --build ui` from the installation directory on the Linux host. Open an SSH tunnel from your laptop using the host's name or SSH alias.
 
 ```sh
 ssh -N -L 8765:127.0.0.1:8765 host-linux
 ```
 
-Otwórz [panel CloudExtractor](http://127.0.0.1:8765). Jeśli ustawisz inny port przez `CLOUDEXTRACTOR_UI_PORT` w `.env`, użyj go w poleceniu tunelu i adresie panelu. Panel wybiera Apple ID spośród kont skonfigurowanych lub zalogowanych przez `auth`.
+Select the Apple ID from accounts configured in `.env` or previously signed in using `auth`. The language picker in the header remembers your choice of Polish or English. If you set another host port through `CLOUDEXTRACTOR_UI_PORT` in `.env`, use it in the tunnel and dashboard URL. [Open the dashboard](http://127.0.0.1:8765)
 
-Zakres „Według dat” domyślnie obejmuje dzisiaj. Ustaw daty **Od** i **Do** albo użyj skrótu **Dziś**, **7 dni** lub **30 dni**. Skróty obejmują dzień bieżący. Obie daty wliczają się w zakres, według strefy czasowej przeglądarki. iCloud filtruje według daty wykonania i może przejrzeć metadane całej biblioteki. W menu nadal można wybrać liczbę ostatnio dodanych pozycji lub „Cała biblioteka”. W trybie dat limit `ICLOUD_RECENT` nie obowiązuje.
+The **By date** scope defaults to today. Set **From** and **To**, or use **Today**, **7 days**, or **30 days**. The presets include today. Both dates are inclusive in the browser's time zone. iCloud filters by capture date and may read metadata for the entire library. You can also choose a number of recently added items or **Entire library**. `ICLOUD_RECENT` does not limit a date-based run.
 
-Wybierz zakres i kliknij „Uruchom pobieranie”. Wcześniejszy skan nie jest potrzebny. Panel pokazuje stan pobierania niezależnie od ładowania galerii. „Skanuj iCloud” odczytuje metadane całej głównej biblioteki konta i odświeża rozmiar oraz listę braków. Jeśli chcesz rozpocząć pobieranie w trakcie skanu, najpierw użyj „Zatrzymaj skan”. Galeria wczytuje miniatury ze wskazanego katalogu konta. Dwuklik otwiera pełnoekranowy podgląd. Odtwarzanie oryginalnych filmów zależy od obsługi formatu przez przeglądarkę.
+Choose the scope and click **Start download**. A download can start without a scan. The dashboard shows download status while the gallery loads. **Scan iCloud** reads metadata from the account's main library and refreshes storage figures and the list of missing files. Use **Stop scan** to free the account for a download. The gallery loads thumbnails from the selected account's archive directory. Double-click a tile for a full-screen preview. Playback of original videos depends on the formats your browser supports.
 
-Panel pokazuje liczbę aktywnych workerów dla wybranego konta, pliki pobrane w danym przebiegu i zakres zadania. Przy pobieraniu według dat licznik biblioteki pokazuje pozycje przed filtrem dat. Do pobrania trafiają brakujące pliki z wybranego okresu.
+The dashboard shows the active worker count for the selected account, the number of files downloaded in the current run, and the job scope. During date-based downloads, the library count shows the number of items before date filtering. The worker downloads missing files within the selected period.
 
-Panel pokazuje dwa łączne rozmiary dla wybranego Apple ID. Apple raportuje miejsce zajęte przez Zdjęcia iCloud. Szczegółowy skan liczy pliki dostępne dla eksportu, w tym części wideo Live Photos i warianty RAW+JPEG. Suma lokalna obejmuje pliki w archiwum, także częściowe pobrania. Filtry typu i katalogu pokazują podsumowania wybranych plików obok obu sum. W tabeli katalogów rozmiary są grupowane według ścieżek archiwum `rok/miesiąc`.
+The dashboard shows total iCloud and local archive sizes for the selected Apple ID. Apple reports storage used by iCloud Photos. The detailed scan counts files available to export, including Live Photo video components and RAW+JPEG variants. The local total includes partial downloads. File type and folder filters show subtotals alongside both overall totals. The folder table groups storage by `year/month`.
 
-Kolumna „Lokalnie / iCloud” porównuje rozmiary w wierszu dla wybranego typu pliku. Kliknij prawym przyciskiem na wierszu miesiąca albo użyj przycisku „⋯”, aby pobrać zdjęcia i filmy z całego miesiąca według dat wykonania w UTC. Jedno konto może wykonywać jedno zadanie naraz.
+The **Local / iCloud** column compares the two sizes for the selected file type. Right-click a month row or use **⋯**, then choose **Download month** to download photos and videos by capture date for that full month in UTC. Each account can run one job at a time.
 
-Wybierz 20, 50 lub 100 pozycji na stronę. Wpisz numer strony i naciśnij Enter albo „Przejdź”. W galerii pobranych plików możesz włączyć grupowanie według odstępu 2, 5, 10, 30, 45, 60, 90 lub 180 sekund. Zdjęcia i filmy tworzą osobne grupy na podstawie czasu wykonania zapisanego przez `icloudpd` w dacie modyfikacji pliku. Każda seria zajmuje jeden kafel. Kliknij grupę, a potem miniaturę, by otworzyć podgląd zdjęcia lub odtwarzacz filmu.
+Choose 20, 50, or 100 items per page. Type a page number and press Enter or click **Go**. In the **Downloaded** gallery, group files captured up to 2, 5, 10, 30, 45, 60, 90, or 180 seconds apart. Photos and videos form separate groups based on the capture time that `icloudpd` stores as the file modification time. Each group takes up one tile. Open a group and click a thumbnail to preview a photo or play a video.
 
-Wybierz widok „Kalendarz”, aby zobaczyć 1, 3, 6 lub 12 miesięcy. Każdy dzień pokazuje liczbę plików według daty wykonania w strefie przeglądarki (I — obrazy, V — filmy). Kliknij dzień, aby przejść do galerii z filtrem daty. W zakładce „Do pobrania” liczniki wymagają skanu iCloud zapisanego z datami.
+Choose **Calendar** to view 1, 3, 6, or 12 months. Each day shows image (I) and video (V) file counts by capture date in the browser's time zone. Click a day to open the gallery filtered to that date. The **Pending** calendar requires an iCloud scan with capture dates.
 
-W galerii wybierz pole i kierunek sortowania. Sortowanie obejmuje cały zestaw po zastosowaniu filtrów, także zakresu **Od–Do**, przed podziałem na strony. Grupy mają datę najnowszego zdjęcia oraz łączny rozmiar wszystkich zdjęć w grupie. Sortowanie po dacie w „Do pobrania” wymaga skanu z datami wykonania.
+Choose a sort field and direction in the gallery. Sorting applies to all results after filters, including a **From–To** date range, before pagination. A group uses the date of its newest file and the combined size of its files. Sorting by date in **Pending** requires a scan with capture dates.
 
-## Adaptery
+## Adapters
 
-Moduły źródeł są w `cloudextractor/adapters/`. Każdy adapter wyznacza katalogi archiwum i stanu oraz argumenty procesu dla `run` i `auth`. Polecenie główne wybiera adapter przez `CLOUDEXTRACTOR_SOURCE`, sprawdza archiwum, blokuje równoległe użycie tego samego stanu i przekazuje kod zakończenia procesu. Import z Google Takeout może użyć tej samej obsługi katalogu docelowego i własnej konfiguracji wejścia.
+Source modules live in `cloudextractor/adapters/`. Each adapter determines the archive and state directories and the arguments for the `run` and `auth` commands. The main command selects an adapter using `CLOUDEXTRACTOR_SOURCE`, checks the archive, locks the account's state against concurrent use, and forwards the process exit code. A future Google Takeout adapter can reuse the destination handling and define its own input settings.
 
-Adaptery przestrzegają trybu APPEND. Adapter iCloud przekazuje `icloudpd` ustaloną listę opcji w trybie Copy.
+Adapters follow APPEND mode. The iCloud adapter passes a fixed set of options to `icloudpd` in Copy mode.

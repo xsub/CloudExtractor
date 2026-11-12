@@ -1,7 +1,9 @@
-const monthLabel = new Intl.DateTimeFormat("pl-PL", { month: "long", year: "numeric", timeZone: "UTC" });
-const dayLabel = new Intl.DateTimeFormat("pl-PL", { dateStyle: "full", timeZone: "UTC" });
-const number = new Intl.NumberFormat("pl-PL");
-const weekdays = ["Pn", "Wt", "Śr", "Cz", "Pt", "So", "Nd"];
+import { locale, t } from "./language.js";
+
+const monthLabel = new Intl.DateTimeFormat(locale, { month: "long", year: "numeric", timeZone: "UTC" });
+const dayLabel = new Intl.DateTimeFormat(locale, { dateStyle: "full", timeZone: "UTC" });
+const number = new Intl.NumberFormat(locale);
+const weekdays = t(["Pn", "Wt", "Śr", "Cz", "Pt", "So", "Nd"], ["Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"]);
 
 function today() {
   const now = new Date();
@@ -103,7 +105,8 @@ export class MediaCalendar {
       dayNumber.textContent = day;
       cell.append(dayNumber);
       const descriptions = [dayLabel.format(date)];
-      for (const [kind, initial, name, total] of [["image", "I", "obrazy", images], ["video", "V", "filmy", videos]]) {
+      const types = [["image", "I", t("obrazy", "images"), images], ["video", "V", t("filmy", "videos"), videos]];
+      for (const [kind, initial, name, total] of types) {
         if (media !== "both" && media !== kind) continue;
         const count = document.createElement("span");
         count.className = `calendar-count ${kind}`;
