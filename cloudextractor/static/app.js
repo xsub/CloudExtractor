@@ -133,10 +133,14 @@ function setFolderBytes(target, size) {
   target.title = `${number.format(size)} B`;
 }
 
+function storageShare(localBytes, cloudBytes) {
+  return localBytes != null && cloudBytes > 0 ? percentage.format(localBytes / cloudBytes) : "—";
+}
+
 function updateFolderValues(row, folder) {
   setFolderBytes(row.cells[1], folder.cloud);
   setFolderBytes(row.cells[2], folder.local);
-  row.cells[3].textContent = folder.cloud > 0 && folder.local != null ? percentage.format(folder.local / folder.cloud) : "—";
+  row.cells[3].textContent = storageShare(folder.local, folder.cloud);
 }
 
 function mediaUrl(path, kind) {
@@ -323,13 +327,19 @@ function showLibraryCounts(data) {
 
 function showStorage(data) {
   const filtered = mediaFilter.value !== "both" || folderFilter.value;
+  const cloudIsMinimum = !data.cloud?.reported_at && data.scan?.unmeasured > 0;
   for (const [key, metrics] of [["cloud", data.cloud], ["local", data.local]]) {
-    setBytes(element(`${key}-total`), metrics?.bytes, key === "cloud" && !metrics?.reported_at && data.scan?.unmeasured > 0);
+    setBytes(element(`${key}-total`), metrics?.bytes, key === "cloud" && cloudIsMinimum);
     const info = element(`${key}-filtered`);
     info.hidden = !metrics || (!filtered && (metrics.filtered === null || metrics.bytes === metrics.filtered));
     const label = filtered ? t("Wybrane", "Selected") : key === "cloud" && metrics?.reported_at ? t("Dostępne do eksportu", "Available to export") : t("Obrazy i filmy", "Images and videos");
-    if (metrics) info.textContent = `${label}: ${bytes(metrics.filtered)}`;
+    if (metrics) {
+      const [caption, value] = info.children;
+      caption.textContent = `${label}:`;
+      setBytes(value, metrics.filtered);
+    }
   }
+  element("local-cloud-share").textContent = storageShare(data.local?.bytes, cloudIsMinimum ? null : data.cloud?.bytes);
   const scope = element("cloud-scope");
   const details = [];
   if (data.cloud?.reported_at) details.push(`${t("Zajęte miejsce wg Apple", "Storage reported by Apple")} · ${date.format(new Date(data.cloud.reported_at))}`);

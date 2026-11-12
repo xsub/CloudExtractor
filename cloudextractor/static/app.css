@@ -6,11 +6,13 @@
   --accent: #1858c8;
   --muted: #55657c;
   --border: #dce4f0;
+  --mono: ui-monospace, "SFMono-Regular", Consolas, monospace;
 }
 
 * { box-sizing: border-box; }
 [hidden] { display: none !important; }
 body { margin: 0; }
+.live-number, #page-count, #gallery-result-count, .calendar-count { font-family: var(--mono); font-variant-numeric: tabular-nums; }
 button, select, input { font: inherit; }
 button, select, input {
   border: 1px solid var(--border);
@@ -90,6 +92,7 @@ h2 { font-size: 1.35rem; }
 .storage-card span, .storage-card p { color: var(--muted); font-size: .79rem; }
 .storage-card strong { display: block; margin: 4px 0; font-size: 1.35rem; font-variant-numeric: tabular-nums; }
 .storage-card p { margin: 3px 0 0; }
+#local-cloud-share { color: #17223a; font-weight: 700; white-space: nowrap; }
 .filters { display: flex; flex-wrap: wrap; gap: 10px; padding: 0 23px 11px; }
 .filters label { display: flex; flex-wrap: wrap; align-items: center; gap: 7px; font-size: .83rem; color: var(--muted); }
 .filters select { min-height: 35px; max-width: 100%; color: #17223a; }
@@ -103,7 +106,7 @@ h2 { font-size: 1.35rem; }
 .folder-table th, .folder-table td { padding: 8px 12px; text-align: right; border-bottom: 1px solid #edf0f5; }
 .folder-table th:first-child, .folder-table td:first-child { text-align: left; }
 .folder-table th { position: sticky; top: 0; background: #f7f9fd; white-space: nowrap; }
-.folder-table td { height: 44px; font-family: ui-monospace, "SFMono-Regular", Consolas, monospace; white-space: nowrap; }
+.folder-table td { height: 44px; font-family: var(--mono); white-space: nowrap; }
 .folder-table td:first-child button { display: block; max-width: 100%; overflow: hidden; white-space: nowrap; text-overflow: ellipsis; }
 .folder-table button { min-height: 0; padding: 0; border: 0; color: var(--accent); }
 .folder-table .folder-unit { display: inline-block; width: 2ch; text-align: left; }

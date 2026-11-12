@@ -32,9 +32,9 @@
       </div>
       <div class="progress" id="progress" aria-hidden="true"></div>
       <dl class="job-stats" aria-label="Postęp zadania" data-en-label="Job progress">
-        <div><dt data-en="Account workers">Workery konta</dt><dd id="job-workers">—</dd></div>
-        <div><dt data-en="Downloaded files">Pobrane pliki</dt><dd id="job-downloaded">—</dd></div>
-        <div><dt id="job-list-label" data-en="iCloud library">Biblioteka iCloud</dt><dd id="job-list-size">—</dd></div>
+        <div><dt data-en="Account workers">Workery konta</dt><dd id="job-workers" class="live-number">—</dd></div>
+        <div><dt data-en="Downloaded files">Pobrane pliki</dt><dd id="job-downloaded" class="live-number">—</dd></div>
+        <div><dt id="job-list-label" data-en="iCloud library">Biblioteka iCloud</dt><dd id="job-list-size" class="live-number">—</dd></div>
         <div><dt data-en="Job scope">Zakres zadania</dt><dd id="job-scope">—</dd></div>
       </dl>
       <p class="activity" id="activity" aria-live="polite"></p>
@@ -82,14 +82,15 @@
       <div class="storage-summary" aria-label="Łączne rozmiary biblioteki" data-en-label="Library storage totals">
         <div class="storage-card">
           <span data-en="iCloud Photos · total">iCloud Photos · razem</span>
-          <strong id="cloud-total">—</strong>
+          <strong id="cloud-total" class="live-number">—</strong>
           <p id="cloud-scope"></p>
-          <p id="cloud-filtered" hidden></p>
+          <p id="cloud-filtered" hidden><span></span> <span class="live-number">—</span></p>
         </div>
         <div class="storage-card">
           <span data-en="Local archive · total">Lokalne archiwum · razem</span>
-          <strong id="local-total">—</strong>
-          <p id="local-filtered" hidden></p>
+          <strong id="local-total" class="live-number">—</strong>
+          <p><span id="local-cloud-share" class="live-number">—</span> <span data-en="of iCloud Photos size">rozmiaru iCloud Photos</span></p>
+          <p id="local-filtered" hidden><span></span> <span class="live-number">—</span></p>
         </div>
       </div>
       <div class="filters">
@@ -129,8 +130,8 @@
       </details>
       <div class="library-nav">
         <div class="tabs" role="tablist" aria-label="Źródło plików" data-en-label="File source">
-          <button id="tab-downloaded" role="tab" aria-controls="library-content" aria-selected="true" data-view="downloaded"><span data-en="Downloaded">Pobrane</span> <span id="downloaded-count">—</span></button>
-          <button id="tab-pending" role="tab" aria-controls="library-content" aria-selected="false" data-view="pending"><span data-en="Pending">Do pobrania</span> <span id="pending-count">—</span></button>
+          <button id="tab-downloaded" role="tab" aria-controls="library-content" aria-selected="true" data-view="downloaded"><span data-en="Downloaded">Pobrane</span> <span id="downloaded-count" class="live-number">—</span></button>
+          <button id="tab-pending" role="tab" aria-controls="library-content" aria-selected="false" data-view="pending"><span data-en="Pending">Do pobrania</span> <span id="pending-count" class="live-number">—</span></button>
         </div>
         <label class="layout-picker"><span data-en="View">Widok</span>
           <select id="library-layout">
