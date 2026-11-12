@@ -1,3 +1,4 @@
+from argparse import ArgumentParser
 from calendar import monthrange
 from datetime import datetime, time, timedelta, timezone
 from functools import lru_cache
@@ -88,7 +89,7 @@ def window_assets(album, start: int, end: int, bounds: Bounds | None):
     raise ValueError("iCloud returned an incomplete list for the download")
 
 
-def download_library(client, config, bounds: list[Bounds], progress: bool) -> int:
+def download_library(client, config, bounds: list[Bounds], progress: bool, *, match_size: bool = False) -> int:
     album = client.photos.all
     library_count = len(album)
     count = library_count if config.recent is None else min(config.recent, library_count)
@@ -101,7 +102,7 @@ def download_library(client, config, bounds: list[Bounds], progress: bool) -> in
     def filename_builder(asset):
         return build_filename_with_policies(config.file_match_policy, clean, asset)
 
-    archive = Archive(Path(config.directory))
+    archive = Archive(Path(config.directory), match_size=match_size)
     next_update = monotonic()
     listed = 0
     ok = True
@@ -124,8 +125,12 @@ def download_library(client, config, bounds: list[Bounds], progress: bool) -> in
 
 
 def main(args: list[str]) -> int:
-    months = parse_months(args[1].split(",")) if args[:1] == ["--months"] else ()
-    _, (config,) = parse(args[2:] if months else args)
+    parser = ArgumentParser(add_help=False, allow_abbrev=False)
+    parser.add_argument("--months")
+    parser.add_argument("--match-size", action="store_true")
+    options, icloud_args = parser.parse_known_args(args)
+    months = parse_months(options.months.split(",")) if options.months else ()
+    _, (config,) = parse(icloud_args)
     bounds = month_bounds(months)
     if config.skip_created_before is not None:
         bounds = [(config.skip_created_before, config.skip_created_after)]
@@ -135,7 +140,7 @@ def main(args: list[str]) -> int:
     # requests logs include signed media URLs at DEBUG.
     logging.getLogger("urllib3").setLevel(logging.WARNING)
     try:
-        return download_library(connect(config), config, bounds, progress)
+        return download_library(connect(config), config, bounds, progress, match_size=options.match_size)
     except PyiCloudFailedLoginException:
         LOGGER.error("iCloud authentication is required")
     except (KeyError, ValueError, OSError, RuntimeError) as error:

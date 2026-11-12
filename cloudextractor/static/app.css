@@ -75,16 +75,19 @@ h2 { font-size: 1.35rem; }
 .date-presets { display: flex; flex-wrap: wrap; gap: 6px; }
 .date-presets button { padding-inline: 11px; }
 .date-zone { margin: 8px 0 0; color: var(--muted); font-size: .8rem; }
+.match-size { display: flex; align-items: center; gap: 8px; margin-top: 12px; color: var(--muted); font-size: .82rem; }
+.match-size input { width: 16px; height: 16px; min-height: 0; margin: 0; padding: 0; accent-color: var(--accent); flex-shrink: 0; }
 .job-actions { margin-top: 14px; }
 .primary { background: var(--accent); border-color: var(--accent); color: #fff; }
 .stop { color: #ad312a; }
 .error { margin: 16px 0 0; color: #a72921; font-size: .88rem; }
-.progress { visibility: hidden; overflow: hidden; height: 3px; background: #e8f0ff; margin-top: 13px; border-radius: 3px; }
-.progress[data-mode="transfer"], .progress[data-mode="checking"] { visibility: visible; }
-.progress[data-mode="transfer"]::before, .progress[data-mode="checking"]::before { content: ""; display: block; height: 100%; background: var(--accent); }
-.progress[data-mode="transfer"]::before { width: 30%; animation: slide 1.5s infinite ease-in-out; }
-.progress[data-mode="checking"]::before { width: var(--listing-progress); }
-@keyframes slide { from { transform: translateX(-100%); } to { transform: translateX(335%); } }
+.job-progress { margin-top: 12px; }
+.job-progress-caption { display: flex; justify-content: space-between; gap: 8px; color: var(--muted); font-size: .8rem; margin-bottom: 5px; }
+#job-progress-count { font-weight: 650; color: #17223a; white-space: nowrap; }
+.progress { display: block; appearance: none; width: 100%; height: 7px; border: 0; border-radius: 8px; overflow: hidden; background: #e8f0ff; }
+.progress::-webkit-progress-bar { background: #e8f0ff; }
+.progress::-webkit-progress-value { background: var(--accent); }
+.progress::-moz-progress-bar { background: var(--accent); }
 
 .library { margin-top: 20px; overflow: hidden; }
 .library-heading { padding: 20px 23px 9px; }
@@ -236,4 +239,3 @@ button.calendar-day[aria-current="date"] { border-color: var(--accent); }
   .folder-summary { margin-inline: 13px; }
   .library-heading { align-items: flex-start; }
 }
-@media (prefers-reduced-motion: reduce) { .progress[data-mode="transfer"]::before { animation: none; } }

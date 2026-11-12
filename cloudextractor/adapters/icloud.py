@@ -15,7 +15,7 @@ def account_name(value: str) -> str:
 
 def prepare(
     action: str, archive: Path, state: Path, date_range: DateRange | None = None,
-    months: tuple[str, ...] = (),
+    months: tuple[str, ...] = (), *, match_size: bool = False,
 ) -> tuple[Path, Path, list[str]]:
     configured_account = os.environ.get("ICLOUD_USERNAME", "")
     if action == "check" and not configured_account.strip():
@@ -60,6 +60,8 @@ def prepare(
 
     if action == "run":
         args = [sys.executable, "-m", "cloudextractor.adapters.icloud_download", *args[1:]]
+        if match_size:
+            args.insert(3, "--match-size")
     if months:
         args[3:3] = ["--months", ",".join(months)]
         return archive, state, args

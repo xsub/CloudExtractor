@@ -58,6 +58,7 @@ docker compose run --rm -T extractor run
 ```
 
 Archiwum działa zawsze w trybie **APPEND**. Panel i CLI zachowują pobrane zdjęcia i filmy po ich usunięciu z iCloud. Jeśli nazwa jest już zajęta, identyczna zawartość jest pomijana, a różniący się plik zapisywany z sufiksem od `_001` do `_999` przed rozszerzeniem.
+Opcja **Pomijaj istniejące pliki o tej samej nazwie i rozmiarze** lub polecenie `run --match-size` pomija takie pliki bez porównywania zawartości.
 
 Archiwum używa katalogów `<Apple ID>/rok/miesiąc` w UTC oraz nazw z identyfikatorem zasobu iCloud. Eksport obejmuje oryginały, część wideo Live Photo i dostępną alternatywną reprezentację zasobu, np. parę RAW+JPEG. Po przerwaniu uruchom `run` ponownie z tą samą konfiguracją.
 

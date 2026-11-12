@@ -58,6 +58,7 @@ docker compose run --rm -T extractor run
 ```
 
 The archive always runs in **APPEND** mode. The dashboard and CLI retain existing copies after their originals are deleted from iCloud. If a filename already exists, identical content is skipped and different content is saved with a suffix from `_001` to `_999` before the extension.
+Select **Skip existing files with the same name and size** or pass `run --match-size` to skip same-size matches by name without comparing their contents.
 
 The archive uses `<Apple ID>/year/month` folders based on UTC and file names that include the iCloud asset identifier. The export includes originals, Live Photo video components, and available alternate representations such as RAW+JPEG pairs. If a run is interrupted, start `run` again with the same settings.
 

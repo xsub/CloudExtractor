@@ -4,6 +4,7 @@ import { locale, localizeDocument, requestError, t } from "./language.js";
 const element = (id) => document.getElementById(id);
 const account = element("account");
 const limit = element("limit");
+const matchSize = element("match-size");
 const dateFrom = element("date-from");
 const dateTo = element("date-to");
 const datePresets = [...document.querySelectorAll("[data-days]")];
@@ -203,6 +204,8 @@ function updateControls() {
   const canWork = !sending && !active && operation && account.value;
   const canStart = canWork && operation.ready;
   limit.disabled = !canStart;
+  matchSize.disabled = !canStart;
+  if (active && operation.job.action === "run") matchSize.checked = operation.job.match_size === true;
   updateDateFields(canStart);
   element("run").disabled = !canStart;
   const resume = status === "stopped" && operation.job.action === "run" && !operation.job.months?.length;
@@ -274,20 +277,27 @@ function itemCount(count) {
   return t(`${value} pozycji`, `${value} ${count === 1 ? "item" : "items"}`);
 }
 
+function showJobProgress(job) {
+  const progress = element("progress");
+  const total = job?.items;
+  const known = Number.isInteger(total) && total >= 0;
+  const checked = known ? Math.min(total, job.status === "finished" ? total : (job.listed ?? 0)) : 0;
+  const fraction = total > 0 ? checked / total : known && job.status === "finished" ? 1 : 0;
+  const rounded = percentage.format(fraction < 1 ? Math.min(fraction, 0.999) : fraction);
+  const summary = known ? `${number.format(checked)} / ${number.format(total)} · ${rounded}` : "—";
+  progress.value = fraction;
+  progress.setAttribute("aria-valuetext", known ? summary : t("Ustalanie liczby pozycji", "Waiting for the item count"));
+  element("job-progress-count").textContent = summary;
+  element("job-remaining").textContent = known ? number.format(total - checked) : "—";
+}
+
 function showJobStats(job) {
   const active = ["running", "scanning", "stopping"].includes(job?.status);
   const run = job?.action === "run";
   const limited = run && job.limit != null;
-  const progress = element("progress");
-  const transferring = job?.status === "running" && Boolean(job.current);
-  const checking = active && job.status !== "stopping" && job.listed > 0 && job.items > 0;
-  progress.dataset.mode = transferring ? "transfer" : checking ? "checking" : "idle";
-  progress.style.setProperty("--listing-progress", checking ? `${Math.min(100, 100 * job.listed / job.items)}%` : "0%");
+  showJobProgress(job);
   element("job-workers").textContent = job ? t(`${Number(active)} z 1`, `${Number(active)} of 1`) : "—";
   element("job-downloaded").textContent = run ? number.format(job.downloaded) : "—";
-  const scoped = limited || job?.date_range || job?.months?.length;
-  element("job-list-label").textContent = scoped ? t("Pozycje do sprawdzenia", "Items to check") : t("Biblioteka iCloud", "iCloud library");
-  element("job-list-size").textContent = job?.items != null ? itemCount(job.items) : "—";
 
   let scope = "—";
   let timezone = "";
@@ -327,12 +337,8 @@ function showActivity(data) {
   showJobStats(job);
   let detail = t("Wybierz zakres i uruchom pobieranie. Wcześniejszy skan nie jest potrzebny.", "Choose a range and start the download. You can download without scanning first.");
   if (!ready) detail = t("Sprawdź montowanie katalogu archiwum.", "Check the archive mount.");
-  else if (job.status === "scanning") {
-    const checked = number.format(job.listed);
-    const total = itemCount(job.items);
-    detail = job.items == null ? t("Łączenie z iCloud przed skanem.", "Connecting to iCloud for the scan.")
-      : t(`Skan iCloud · sprawdzono ${checked} z ${total}.`, `iCloud scan · checked ${checked} of ${total}.`);
-  }
+  else if (job.status === "scanning") detail = job.items == null ? t("Łączenie z iCloud przed skanem.", "Connecting to iCloud for the scan.")
+    : t("Odczytywanie biblioteki iCloud.", "Reading the iCloud library.");
   else if (job.status === "stopping") detail = t("Zatrzymywanie procesu.", "Stopping the worker.");
   else if (job.status === "failed") detail = problems[job.issue] || t("Proces zakończył się błędem. Sprawdź sesję iCloud.", "The worker failed. Check your iCloud session.");
   else if (job.status === "finished" && job.action === "run" && !job.downloaded) {
@@ -341,12 +347,10 @@ function showActivity(data) {
   }
   else if (job.status === "running") {
     if (job.current) detail = t("Trwa pobieranie pliku.", "Downloading a file.");
-    else if (job.items == null) detail = t("Łączenie z iCloud.", "Connecting to iCloud.");
-    else if (job.listed > 0) {
-      const checked = number.format(job.listed);
-      const total = itemCount(job.items);
-      detail = t(`Sprawdzono ${checked} z ${total}.`, `Checked ${checked} of ${total}.`);
-    } else detail = t("Worker sprawdza listę iCloud. Obecnie nie przesyła pliku.", "The worker is checking the iCloud list. No file is currently transferring.");
+    else if (job.items == null) detail = job.date_range || job.months?.length
+      ? t("Ustalanie liczby pozycji w wybranym zakresie.", "Finding items in the selected date range.")
+      : t("Łączenie z iCloud.", "Connecting to iCloud.");
+    else detail = t("Sprawdzanie pozycji w kolejce.", "Checking queued items.");
   } else if (job.status === "finished") detail = job.action === "run" ? t("Pobieranie zakończone.", "Download finished.")
     : t("Skan zakończony. Lista braków jest dostępna w zakładce Do pobrania.", "Scan finished. See missing files in the Pending tab.");
   else if (job.status === "stopped") detail = t("Możesz ponownie uruchomić skan lub pobieranie.", "You can start another scan or download.");
@@ -697,6 +701,7 @@ async function refreshActivity() {
     if (current !== activityId) return;
     if (restoreScope) {
       restoreScope = false;
+      matchSize.checked = data.job.match_size === true;
       if (data.job.months?.length) {
         if (!selectedMonths.size) {
           for (const month of data.job.months) selectedMonths.add(month);
@@ -725,6 +730,7 @@ async function refreshActivity() {
 async function control(action, months = []) {
   const body = { account: account.value, action };
   if (action === "run") {
+    body.match_size = matchSize.checked;
     if (months.length) {
       body.months = months;
     } else if (limit.value === "dates") {

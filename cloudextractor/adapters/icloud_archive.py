@@ -30,8 +30,9 @@ def entry(path: Path) -> os.stat_result | None:
 
 
 class Archive:
-    def __init__(self, root: Path):
+    def __init__(self, root: Path, *, match_size: bool = False):
         self.root = root
+        self.match_size = match_size
         self.numbered = {}
 
     def versions(self, target: Path) -> dict[int, Path]:
@@ -57,7 +58,7 @@ class Archive:
             if info is None:
                 continue
             occupied.add(path)
-            if stat.S_ISREG(info.st_mode) and info.st_size == size and matches(path):
+            if stat.S_ISREG(info.st_mode) and info.st_size == size and (self.match_size or matches(path)):
                 return None
 
         if target not in occupied:
@@ -76,9 +77,11 @@ class Archive:
             if (self.root / parent).is_symlink():
                 raise ValueError(f"Use a real archive directory at {self.root / parent}")
 
+        if type(version.size) is not int or version.size < 0:
+            raise ValueError("Invalid media size from iCloud")
         checksum = base64.b64decode(version.checksum, validate=True)
-        if not checksum or type(version.size) is not int or version.size < 0:
-            raise ValueError("Invalid media checksum or size from iCloud")
+        if not checksum:
+            raise ValueError("Invalid media checksum from iCloud")
         known_checksum = len(checksum) == 21 and checksum[0] == 1
         legacy = kind == AssetVersionSize.ORIGINAL
         checksum_name = base64.b32encode(checksum).decode()
@@ -96,7 +99,7 @@ class Archive:
                             (known_checksum and not checksum_matches(staged, checksum))):
             staged.unlink()
 
-        destination = self.destination(target, version.size, legacy, matches) if known_checksum else target
+        destination = self.destination(target, version.size, legacy, matches) if known_checksum or self.match_size else target
         if destination is None:
             staged.unlink(missing_ok=True)
             return True
@@ -113,7 +116,7 @@ class Archive:
                 LOGGER.error("Size or checksum mismatch for %s", target)
                 return False
 
-        if not known_checksum:
+        if not known_checksum and not self.match_size:
             destination = self.destination(target, version.size, legacy, matches)
         # Linking a complete file into place publishes it atomically and fails if
         # another process created the destination in the meantime.

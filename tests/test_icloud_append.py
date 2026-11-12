@@ -74,6 +74,22 @@ class ICloudAppendTest(unittest.TestCase):
                 "IMG_0001.JPG": b"first", "IMG_0001_001.JPG": b"other", "IMG_0001_002.JPG": data,
             })
 
+    def test_size_matching_skips_existing_content_without_reading_it(self):
+        with TemporaryDirectory() as directory:
+            root = Path(directory)
+            target = root / "IMG_0001.JPG"
+            target.write_bytes(b"first")
+            checksum = base64.b64encode(b"\x01" + hashlib.sha1(CHECKSUM_SALT + b"other").digest()).decode()
+            version = AssetVersion(5, "https://unused.invalid", "public.jpeg", checksum)
+            with patch("cloudextractor.adapters.icloud_archive.checksum_matches") as hash_file, \
+                 patch("cloudextractor.adapters.icloud_archive.download_media") as transfer:
+                saved = Archive(root, match_size=True).save(None, None, Path(target.name), AssetVersionSize.ORIGINAL,
+                                                            version, lambda _: target.name)
+            self.assertTrue(saved)
+            hash_file.assert_not_called()
+            transfer.assert_not_called()
+            self.assertEqual(target.read_bytes(), b"first")
+
 
 if __name__ == "__main__":
     unittest.main()

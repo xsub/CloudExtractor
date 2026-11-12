@@ -231,10 +231,13 @@ def create_app(archive: Path, state: Path) -> Flask:
             abort(400)
         account = selected_account(data.get("account", ""))
         action = data.get("action")
+        match_size = data.get("match_size", False)
         raw_dates = data.get("date_range")
         has_months = "months" in data
         limit = data.get("limit", default_limit if raw_dates is None and not has_months else None)
         if action not in ("run", "scan", "stop") or (limit is not None and (type(limit) is not int or limit < 1)):
+            abort(400)
+        if type(match_size) is not bool or (match_size and action != "run"):
             abort(400)
 
         months = ()
@@ -263,7 +266,7 @@ def create_app(archive: Path, state: Path) -> Flask:
             elif action == "scan":
                 jobs.start(account, action, None)
             elif archive_ready():
-                jobs.start(account, action, limit, date_range, months)
+                jobs.start(account, action, limit, date_range, months, match_size=match_size)
             else:
                 raise ValueError("Archiwum jest niedostępne. Sprawdź montowanie na hoście.")
         except ValueError as error:

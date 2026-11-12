@@ -30,11 +30,17 @@
         <h1 id="control-heading" data-en="iCloud downloads">Pobieranie iCloud</h1>
         <span id="status" class="status" role="status" data-en="Connecting">Łączenie</span>
       </div>
-      <div class="progress" id="progress" aria-hidden="true"></div>
+      <div class="job-progress">
+        <div class="job-progress-caption">
+          <span id="job-progress-label" data-en="Job progress">Postęp zadania</span>
+          <span class="live-number" id="job-progress-count">—</span>
+        </div>
+        <progress class="progress" id="progress" value="0" max="1" aria-labelledby="job-progress-label"></progress>
+      </div>
       <dl class="job-stats" aria-label="Postęp zadania" data-en-label="Job progress">
         <div><dt data-en="Account workers">Workery konta</dt><dd id="job-workers" class="live-number">—</dd></div>
         <div><dt data-en="Downloaded files">Pobrane pliki</dt><dd id="job-downloaded" class="live-number">—</dd></div>
-        <div><dt id="job-list-label" data-en="iCloud library">Biblioteka iCloud</dt><dd id="job-list-size" class="live-number">—</dd></div>
+        <div><dt data-en="In queue">W kolejce</dt><dd id="job-remaining" class="live-number">—</dd></div>
         <div><dt data-en="Job scope">Zakres zadania</dt><dd id="job-scope">—</dd></div>
       </dl>
       <p class="activity" id="activity" aria-live="polite"></p>
@@ -65,6 +71,10 @@
         </div>
       </div>
       <p class="date-zone" id="date-zone"></p>
+      <label class="match-size">
+        <input id="match-size" type="checkbox" disabled>
+        <span data-en="Skip existing files with the same name and size">Pomijaj istniejące pliki o tej samej nazwie i rozmiarze</span>
+      </label>
       <div class="controls job-actions">
         <button class="primary" id="run" disabled data-en="Start download">Uruchom pobieranie</button>
         <button id="stop" class="stop" disabled data-en="Stop">Zatrzymaj</button>

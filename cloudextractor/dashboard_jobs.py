@@ -33,6 +33,7 @@ class Job:
     listed: int = 0
     errors: int = 0
     issue: str | None = None
+    match_size: bool = False
 
 
 @dataclass(frozen=True)
@@ -55,7 +56,7 @@ class Jobs:
 
     def start(
         self, account: str, action: str, limit: int | None, date_range: DateRange | None = None,
-        months: tuple[str, ...] = (),
+        months: tuple[str, ...] = (), *, match_size: bool = False,
     ) -> None:
         with self.lock:
             previous = self.jobs.get(account)
@@ -73,13 +74,15 @@ class Jobs:
                                 "--date-zone", date_range.timezone])
             for month in months:
                 command.extend(["--month", month])
+            if match_size:
+                command.append("--match-size")
             process = subprocess.Popen(
                 command,
                 env=env, stdin=subprocess.DEVNULL, stdout=subprocess.PIPE,
                 stderr=subprocess.STDOUT, text=True, errors="replace", start_new_session=True,
             )
             job = Job(process, action, limit, "running" if action == "run" else "scanning",
-                      date_range=asdict(date_range) if date_range is not None else None, months=months)
+                      date_range=asdict(date_range) if date_range is not None else None, months=months, match_size=match_size)
             self.jobs[account] = job
             Thread(target=self._collect, args=(account, job), daemon=True).start()
 

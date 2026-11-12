@@ -131,7 +131,7 @@ class DownloadDatesTest(unittest.TestCase):
             state.mkdir()
             (archive / ".cloudextractor-archive").touch()
             client = create_app(archive, state).test_client()
-            payload = {"account": account, "action": "run"}
+            payload = {"account": account, "action": "run", "match_size": True}
             headers = {"X-CloudExtractor": "1"}
             with patch("cloudextractor.dashboard_jobs.subprocess.Popen") as worker, \
                  patch("cloudextractor.dashboard_jobs.Thread"):
@@ -146,7 +146,8 @@ class DownloadDatesTest(unittest.TestCase):
                                        headers=headers)
                 self.assertEqual(response.status_code, 202)
                 worker.assert_called_once()
-                self.assertEqual(worker.call_args.args[0][-4:], ["--month", "2026/08", "--month", "2026/10"])
+                self.assertEqual(worker.call_args.args[0][-5:], ["--month", "2026/08", "--month", "2026/10", "--match-size"])
                 self.assertEqual(worker.call_args.kwargs["env"]["ICLOUD_RECENT"], "")
                 response = client.get("/api/jobs", query_string={"account": account})
                 self.assertEqual(response.json["job"]["months"], ["2026/08", "2026/10"])
+                self.assertTrue(response.json["job"]["match_size"])
