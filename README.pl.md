@@ -114,3 +114,7 @@ W galerii wybierz pole i kierunek sortowania. Sortowanie obejmuje cały zestaw p
 Moduły źródeł są w `cloudextractor/adapters/`. Każdy adapter wyznacza katalogi archiwum i stanu oraz argumenty procesu dla `run` i `auth`. Polecenie główne wybiera adapter przez `CLOUDEXTRACTOR_SOURCE`, sprawdza archiwum, blokuje równoległe użycie tego samego stanu i przekazuje kod zakończenia procesu. Import z Google Takeout może użyć tej samej obsługi katalogu docelowego i własnej konfiguracji wejścia.
 
 Adaptery przestrzegają trybu APPEND. Adapter iCloud korzysta z `icloudpd` do obsługi sesji i wznawiania transferów. System plików archiwum musi obsługiwać dowiązania twarde, aby zapisać kompletny plik bez nadpisania istniejącego.
+
+## TODO
+
+- [ ] Udostępnić panel z kontenera CloudExtractor na DataSafe i wymagać logowania lokalnym hasłem przed wyborem Apple ID.

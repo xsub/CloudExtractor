@@ -114,3 +114,7 @@ Choose a sort field and direction in the gallery. Sorting applies to all results
 Source modules live in `cloudextractor/adapters/`. Each adapter determines the archive and state directories and the arguments for the `run` and `auth` commands. The main command selects an adapter using `CLOUDEXTRACTOR_SOURCE`, checks the archive, locks the account's state against concurrent use, and forwards the process exit code. A future Google Takeout adapter can reuse the destination handling and define its own input settings.
 
 Adapters follow APPEND mode. The iCloud adapter uses `icloudpd` for session handling and resumable transfers. The archive filesystem must support hard links so a complete file can be published without replacing an existing one.
+
+## TODO
+
+- [ ] Serve the dashboard from the CloudExtractor container on DataSafe and require sign-in with a local password before allowing Apple ID selection.
