@@ -92,7 +92,7 @@ The dashboard shows the active worker count for the selected account, the number
 
 The dashboard shows total iCloud and local archive sizes for the selected Apple ID. Apple reports storage used by iCloud Photos. The detailed scan counts files available to export, including Live Photo video components and RAW+JPEG variants. The local total includes partial downloads. File type and folder filters show subtotals alongside both overall totals. The folder table groups storage by `year/month`.
 
-The **Local / iCloud** column compares the two sizes for the selected file type. Right-click a month row or use **⋯**, then choose **Download month** to download photos and videos by capture date for that full month in UTC. Each account can run one job at a time.
+The **Local / iCloud** column compares the two sizes for the selected file type. Right-click a month row or use **⋯**, then choose **Download month** to download photos and videos by capture date for that full month in UTC. To download several months, check their rows and choose **Download selected**. The worker checks the library once and downloads missing files from the selected months. Each account can run one job at a time.
 
 Choose 20, 50, or 100 items per page. Type a page number and press Enter or click **Go**. In the **Downloaded** gallery, group files captured up to 2, 5, 10, 30, 45, 60, 90, or 180 seconds apart. Photos and videos form separate groups based on the capture time that `icloudpd` stores as the file modification time. Each group takes up one tile. Open a group and click a thumbnail to preview a photo or play a video.
 

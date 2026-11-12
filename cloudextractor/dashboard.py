@@ -15,7 +15,7 @@ from cloudextractor.adapters.icloud import account_name
 from cloudextractor.catalog import Catalog
 from cloudextractor.dashboard_jobs import Jobs
 from cloudextractor.dashboard_media import Gallery, VIDEOS, jpeg_preview
-from cloudextractor.download_dates import DateRange
+from cloudextractor.download_dates import DateRange, parse_months
 
 
 PAGE_SIZES = (20, 50, 100)
@@ -232,9 +232,20 @@ def create_app(archive: Path, state: Path) -> Flask:
         account = selected_account(data.get("account", ""))
         action = data.get("action")
         raw_dates = data.get("date_range")
-        limit = data.get("limit", default_limit if raw_dates is None else None)
+        has_months = "months" in data
+        limit = data.get("limit", default_limit if raw_dates is None and not has_months else None)
         if action not in ("run", "scan", "stop") or (limit is not None and (type(limit) is not int or limit < 1)):
             abort(400)
+
+        months = ()
+        if has_months:
+            if action != "run" or raw_dates is not None or limit is not None:
+                return jsonify(error="Miesiące wybiera się osobno od zakresu dat lub liczby pozycji."), 400
+            try:
+                raw_months = data["months"]
+                months = parse_months(raw_months if isinstance(raw_months, list) else [])
+            except ValueError as error:
+                return jsonify(error=str(error)), 400
 
         date_range = None
         if raw_dates is not None:
@@ -252,7 +263,7 @@ def create_app(archive: Path, state: Path) -> Flask:
             elif action == "scan":
                 jobs.start(account, action, None)
             elif archive_ready():
-                jobs.start(account, action, limit, date_range)
+                jobs.start(account, action, limit, date_range, months)
             else:
                 raise ValueError("Archiwum jest niedostępne. Sprawdź montowanie na hoście.")
         except ValueError as error:

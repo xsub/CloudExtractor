@@ -107,9 +107,16 @@
       </div>
       <details class="folder-summary">
         <summary data-en="Folder sizes">Rozmiary katalogów</summary>
+        <div class="month-batch">
+          <button type="button" id="download-selected" data-en="Download selected" disabled>Pobierz zaznaczone</button>
+          <span id="selected-month-count" class="live-number"></span>
+          <button type="button" id="batch-stop" class="stop" data-en="Stop checking" hidden>Zatrzymaj sprawdzanie</button>
+          <p id="batch-note" hidden></p>
+        </div>
         <div class="folder-table">
           <table aria-label="Rozmiary katalogów dla wybranego typu plików" data-en-label="Folder sizes for the selected file type">
             <colgroup>
+              <col class="folder-select-column">
               <col>
               <col class="folder-size-column" span="2">
               <col class="folder-ratio-column">
@@ -117,6 +124,7 @@
             </colgroup>
             <thead>
               <tr>
+                <th scope="col" aria-label="Wybór miesiąca" data-en-label="Month selection"></th>
                 <th scope="col" data-en="Folder">Katalog</th>
                 <th scope="col">iCloud</th>
                 <th scope="col" data-en="Local">Lokalnie</th>
@@ -232,6 +240,7 @@
   <div id="month-menu" class="month-menu" popover role="group" aria-label="Akcje miesiąca" data-en-label="Month actions" tabindex="-1">
     <p id="month-menu-range"></p>
     <button type="button" id="month-download" disabled data-en="Download month">Pobierz miesiąc</button>
+    <button type="button" id="month-stop" class="stop" data-en="Stop checking" hidden>Zatrzymaj sprawdzanie</button>
     <p id="month-menu-note" class="month-menu-note" hidden></p>
   </div>
 

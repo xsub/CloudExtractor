@@ -2,21 +2,51 @@ from datetime import datetime, timedelta
 import logging
 import os
 from pathlib import Path
+import sys
 from tempfile import TemporaryDirectory
 from types import SimpleNamespace
 import unittest
 from unittest.mock import Mock, patch
 
+from icloudpd import base
 from icloudpd.base import where_builder
 from icloudpd.cli import parse
 
 from cloudextractor.adapters.icloud import prepare
+from cloudextractor.adapters.icloud_months import run as run_months
 from cloudextractor.dashboard import create_app
 from cloudextractor.dashboard_jobs import Job, Jobs
 from cloudextractor.download_dates import DateRange
 
 
 class DownloadDatesTest(unittest.TestCase):
+    def test_selected_months_exclude_the_gap_and_use_utc(self):
+        months = ("2026/08", "2026/10")
+        with patch.dict(os.environ, {"ICLOUD_USERNAME": "test@example.com", "ICLOUD_RECENT": "20"}, clear=True):
+            _, _, command = prepare("run", Path("/archive"), Path("/state"), months=months)
+        self.assertEqual(command[2:4], ["cloudextractor.adapters.icloud_months", "2026/08,2026/10"])
+
+        def simulate_cli():
+            _, (account,) = parse(sys.argv[1:])
+            self.assertIsNone(account.recent)
+            self.assertFalse(account.auto_delete)
+            self.assertFalse(account.delete_after_download)
+            for iso, known, expected in (
+                ("2026-09-01T00:59:59+01:00", True, True),
+                ("2026-09-01T01:00:00+01:00", True, False),
+                ("2026-10-01T00:00:00+00:00", True, True),
+                ("2026-10-01T00:00:00+00:00", False, False),
+            ):
+                with self.subTest(date=iso, known=known):
+                    photo = SimpleNamespace(has_asset_date=known, created=datetime.fromisoformat(iso))
+                    self.assertEqual(base.where_builder(logging.getLogger(__name__), False, None, None,
+                                                        False, lambda _photo: "photo.jpg", photo), expected)
+            return 0
+
+        with patch("cloudextractor.adapters.icloud_months.cli", side_effect=simulate_cli):
+            self.assertEqual(run_months(months, command[4:]), 0)
+        self.assertIs(base.where_builder, where_builder)
+
     def test_listing_progress_is_separate_from_file_transfers(self):
         job = Job(Mock(), "run", None, "running")
         Jobs._progress(job, "2026-11-12 02:00:00 DEBUG    Downloading /archive/file.jpg...")
@@ -81,3 +111,31 @@ class DownloadDatesTest(unittest.TestCase):
                 self.assertEqual(worker.call_args.kwargs["env"]["ICLOUD_RECENT"], "")
                 response = client.get("/api/jobs", query_string={"account": account})
                 self.assertEqual(response.json["job"]["date_range"], dates)
+
+    def test_dashboard_starts_selected_months_in_one_worker(self):
+        account = "test@example.com"
+        with TemporaryDirectory() as temporary, patch.dict(os.environ, {"ICLOUD_USERNAME": account}, clear=True):
+            archive, state = Path(temporary) / "archive", Path(temporary) / "state"
+            archive.mkdir()
+            state.mkdir()
+            (archive / ".cloudextractor-archive").touch()
+            client = create_app(archive, state).test_client()
+            payload = {"account": account, "action": "run"}
+            headers = {"X-CloudExtractor": "1"}
+            with patch("cloudextractor.dashboard_jobs.subprocess.Popen") as worker, \
+                 patch("cloudextractor.dashboard_jobs.Thread"):
+                for invalid in ([], ["2026/00"], ["0000/03"], "2026/03"):
+                    self.assertEqual(client.post("/api/jobs", json={**payload, "months": invalid},
+                                                 headers=headers).status_code, 400)
+                self.assertEqual(client.post("/api/jobs", json={**payload, "months": ["2026/08"], "limit": 20},
+                                             headers=headers).status_code, 400)
+                worker.assert_not_called()
+
+                response = client.post("/api/jobs", json={**payload, "months": ["2026/10", "2026/08", "2026/10"]},
+                                       headers=headers)
+                self.assertEqual(response.status_code, 202)
+                worker.assert_called_once()
+                self.assertEqual(worker.call_args.args[0][-4:], ["--month", "2026/08", "--month", "2026/10"])
+                self.assertEqual(worker.call_args.kwargs["env"]["ICLOUD_RECENT"], "")
+                response = client.get("/api/jobs", query_string={"account": account})
+                self.assertEqual(response.json["job"]["months"], ["2026/08", "2026/10"])

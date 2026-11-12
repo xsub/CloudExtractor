@@ -92,7 +92,7 @@ Panel pokazuje liczbę aktywnych workerów dla wybranego konta, pliki pobrane w 
 
 Panel pokazuje dwa łączne rozmiary dla wybranego Apple ID. Apple raportuje miejsce zajęte przez Zdjęcia iCloud. Szczegółowy skan liczy pliki dostępne dla eksportu, w tym części wideo Live Photos i warianty RAW+JPEG. Suma lokalna obejmuje pliki w archiwum, także częściowe pobrania. Filtry typu i katalogu pokazują podsumowania wybranych plików obok obu sum. W tabeli katalogów rozmiary są grupowane według ścieżek archiwum `rok/miesiąc`.
 
-Kolumna „Lokalnie / iCloud” porównuje rozmiary w wierszu dla wybranego typu pliku. Kliknij prawym przyciskiem na wierszu miesiąca albo użyj przycisku „⋯”, aby pobrać zdjęcia i filmy z całego miesiąca według dat wykonania w UTC. Jedno konto może wykonywać jedno zadanie naraz.
+Kolumna „Lokalnie / iCloud” porównuje rozmiary w wierszu dla wybranego typu pliku. Kliknij prawym przyciskiem na wierszu miesiąca albo użyj przycisku „⋯”, aby pobrać zdjęcia i filmy z całego miesiąca według dat wykonania w UTC. Aby pobrać kilka miesięcy, zaznacz ich wiersze i wybierz **Pobierz zaznaczone**. Worker sprawdzi bibliotekę raz i pobierze braki z wybranych miesięcy. Jedno konto może wykonywać jedno zadanie naraz.
 
 Wybierz 20, 50 lub 100 pozycji na stronę. Wpisz numer strony i naciśnij Enter albo „Przejdź”. W galerii pobranych plików możesz włączyć grupowanie według odstępu 2, 5, 10, 30, 45, 60, 90 lub 180 sekund. Zdjęcia i filmy tworzą osobne grupy na podstawie czasu wykonania zapisanego przez `icloudpd` w dacie modyfikacji pliku. Każda seria zajmuje jeden kafel. Kliknij grupę, a potem miniaturę, by otworzyć podgląd zdjęcia lub odtwarzacz filmu.
 

@@ -15,6 +15,7 @@ def account_name(value: str) -> str:
 
 def prepare(
     action: str, archive: Path, state: Path, date_range: DateRange | None = None,
+    months: tuple[str, ...] = (),
 ) -> tuple[Path, Path, list[str]]:
     configured_account = os.environ.get("ICLOUD_USERNAME", "")
     if action == "check" and not configured_account.strip():
@@ -56,6 +57,9 @@ def prepare(
     ])
     if action == "inventory":
         return archive, state, [sys.executable, "-m", "cloudextractor.adapters.icloud_inventory", *args[1:]]
+
+    if months:
+        return archive, state, [sys.executable, "-m", "cloudextractor.adapters.icloud_months", ",".join(months), *args[1:]]
 
     if date_range is not None:
         first, last = date_range.utc_bounds()

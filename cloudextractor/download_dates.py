@@ -1,6 +1,16 @@
 from dataclasses import dataclass
 from datetime import date, datetime, time, timedelta, timezone
+import re
 from zoneinfo import ZoneInfo, ZoneInfoNotFoundError
+
+
+def parse_months(values: list[str]) -> tuple[str, ...]:
+    if not values or any(
+        not isinstance(value, str) or not re.fullmatch(r"(?!0000)[0-9]{4}/(0[1-9]|1[0-2])", value)
+        for value in values
+    ):
+        raise ValueError("Wybierz co najmniej jeden poprawny miesiąc.")
+    return tuple(sorted(set(values)))
 
 
 @dataclass(frozen=True)

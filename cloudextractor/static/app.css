@@ -100,16 +100,23 @@ h2 { font-size: 1.35rem; }
 .filters select { min-height: 35px; max-width: 100%; color: #17223a; }
 .folder-summary { margin: 0 23px 12px; border: 1px solid var(--border); border-radius: 8px; }
 .folder-summary summary { cursor: pointer; padding: 9px 12px; font-size: .85rem; font-weight: 650; }
+.month-batch { display: flex; flex-wrap: wrap; align-items: center; gap: 8px 12px; padding: 5px 12px 10px; font-size: .82rem; }
+.month-batch button { min-height: 34px; }
+.month-batch p { flex-basis: 100%; margin: 0; color: var(--muted); }
 .folder-table { max-height: 260px; overflow: auto; scrollbar-gutter: stable; border-top: 1px solid var(--border); }
-.folder-table table { width: 100%; min-width: 32rem; table-layout: fixed; border-collapse: collapse; font-size: .82rem; }
+.folder-table table { width: 100%; min-width: 34rem; table-layout: fixed; border-collapse: collapse; font-size: .82rem; }
+.folder-select-column { width: 2.75rem; }
 .folder-size-column { width: 22%; }
 .folder-ratio-column { width: 24%; }
 .folder-action-column { width: 2.75rem; }
 .folder-table th, .folder-table td { padding: 8px 12px; text-align: right; border-bottom: 1px solid #edf0f5; }
-.folder-table th:first-child, .folder-table td:first-child { text-align: left; }
+.folder-table th:nth-child(2), .folder-table td:nth-child(2) { text-align: left; }
+.folder-table .folder-select-cell { padding-inline: 4px; text-align: center; }
+.folder-checkbox { width: 16px; height: 16px; min-height: 0; padding: 0; margin: 0; accent-color: var(--accent); vertical-align: middle; }
+.folder-table .selected-month { background: #edf4ff; }
 .folder-table th { position: sticky; top: 0; background: #f7f9fd; white-space: nowrap; }
 .folder-table td { height: 44px; font-family: var(--mono); white-space: nowrap; }
-.folder-table td:first-child button { display: block; max-width: 100%; overflow: hidden; white-space: nowrap; text-overflow: ellipsis; }
+.folder-table td:nth-child(2) button { display: block; max-width: 100%; overflow: hidden; white-space: nowrap; text-overflow: ellipsis; }
 .folder-table button { min-height: 0; padding: 0; border: 0; color: var(--accent); }
 .folder-table .folder-unit { display: inline-block; width: 2ch; text-align: left; }
 .folder-table .folder-action-cell { padding-inline: 4px 8px; }
@@ -130,6 +137,7 @@ h2 { font-size: 1.35rem; }
 }
 .month-menu p { margin: 0 0 7px; color: var(--muted); font-size: .8rem; }
 .month-menu button { width: 100%; min-height: 34px; text-align: left; }
+.month-menu #month-stop { margin-top: 6px; }
 .month-menu .month-menu-note { margin: 8px 0 0; }
 .library-nav { display: flex; align-items: end; justify-content: space-between; gap: 10px; flex-wrap: wrap; padding: 0 23px; border-bottom: 1px solid var(--border); }
 .tabs { display: flex; gap: 18px; }

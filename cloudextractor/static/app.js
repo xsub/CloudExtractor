@@ -21,6 +21,8 @@ const pageNumber = element("page-number");
 const groupInterval = element("group-interval");
 const monthMenu = element("month-menu");
 const monthDownload = element("month-download");
+const batchDownload = element("download-selected");
+const selectedMonths = new Set();
 const gallery = element("items");
 const groupViewer = element("group-viewer");
 const viewer = element("viewer");
@@ -138,9 +140,9 @@ function storageShare(localBytes, cloudBytes) {
 }
 
 function updateFolderValues(row, folder) {
-  setFolderBytes(row.cells[1], folder.cloud);
-  setFolderBytes(row.cells[2], folder.local);
-  row.cells[3].textContent = storageShare(folder.local, folder.cloud);
+  setFolderBytes(row.cells[2], folder.cloud);
+  setFolderBytes(row.cells[3], folder.local);
+  row.cells[4].textContent = storageShare(folder.local, folder.cloud);
 }
 
 function mediaUrl(path, kind) {
@@ -203,7 +205,8 @@ function updateControls() {
   limit.disabled = !canStart;
   updateDateFields(canStart);
   element("run").disabled = !canStart;
-  element("run").textContent = status === "stopped" && operation.job.action === "run" ? t("Wznów pobieranie", "Resume download") : t("Uruchom pobieranie", "Start download");
+  const resume = status === "stopped" && operation.job.action === "run" && !operation.job.months?.length;
+  element("run").textContent = resume ? t("Wznów pobieranie", "Resume download") : t("Uruchom pobieranie", "Start download");
   element("scan").disabled = !canWork;
   element("stop").disabled = sending || !["running", "scanning"].includes(status);
   element("stop").textContent = status === "scanning" ? t("Zatrzymaj skan", "Stop scan") : t("Zatrzymaj", "Stop");
@@ -221,14 +224,31 @@ function monthRange(folder) {
 function updateMonthAction() {
   const status = operation?.job.status;
   const active = ["running", "scanning", "stopping"].includes(status);
+  const checking = status === "running" && !operation.job.current && operation.job.items != null;
   let note = "";
   if (sending || !operation) note = t("Panel odczytuje stan zadania.", "Checking job status.");
   else if (!operation.ready) note = t("Archiwum jest niedostępne.", "The archive is unavailable.");
-  else if (active) note = t("Dla tego Apple ID trwa zadanie. Pobierz miesiąc po jego zakończeniu.", "This Apple ID has an active job. Download the month once it finishes.");
+  else if (checking) note = t("Worker sprawdza bibliotekę. Możesz zatrzymać sprawdzanie i uruchomić nowe pobieranie.", "The worker is checking the library. You can stop checking and start another download.");
+  else if (active) note = t("Dla tego Apple ID trwa zadanie. Poczekaj na jego zakończenie.", "This Apple ID has an active job. Wait for it to finish.");
   monthDownload.disabled = !monthSelection || element("run").disabled;
-  const message = element("month-menu-note");
-  message.textContent = note;
-  message.hidden = !note;
+  batchDownload.disabled = !selectedMonths.size || element("run").disabled;
+  const count = number.format(selectedMonths.size);
+  element("selected-month-count").textContent = t(`Zaznaczone miesiące: ${count}`, `Selected months: ${count}`);
+  for (const [noteId, show] of [["month-menu-note", true], ["batch-note", selectedMonths.size > 0]]) {
+    const message = element(noteId);
+    message.textContent = note;
+    message.hidden = !show || !note;
+  }
+  element("month-stop").hidden = !checking || sending;
+  element("batch-stop").hidden = !checking || sending || !selectedMonths.size;
+}
+
+function syncMonthSelection() {
+  for (const box of document.querySelectorAll(".folder-checkbox")) {
+    box.checked = selectedMonths.has(box.value);
+    box.closest("tr").classList.toggle("selected-month", box.checked);
+  }
+  updateMonthAction();
 }
 
 function showMonthMenu(month, x, y) {
@@ -270,7 +290,12 @@ function showJobStats(job) {
 
   let scope = "—";
   let timezone = "";
-  if (job?.date_range) {
+  let scopeTitle = "";
+  if (job?.months?.length) {
+    const count = number.format(job.months.length);
+    scope = job.months.length === 1 ? job.months[0] : t(`Miesiące: ${count}`, `Months: ${count}`);
+    scopeTitle = `${job.months.join(", ")} (UTC)`;
+  } else if (job?.date_range) {
     const { start, end } = job.date_range;
     scope = calendarDate.formatRange(new Date(start), new Date(end));
     timezone = job.date_range.timezone;
@@ -281,7 +306,7 @@ function showJobStats(job) {
   }
   const scopeValue = element("job-scope");
   scopeValue.textContent = scope;
-  scopeValue.title = timezone ? `${scope} (${timezone})` : scope;
+  scopeValue.title = scopeTitle || (timezone ? `${scope} (${timezone})` : scope);
 
   const filename = job?.current || job?.last || "";
   element("job-file-label").textContent = job?.current ? t("Pobierany plik", "Current file") : job?.last ? t("Ostatni plik", "Last file") : t("Plik", "File");
@@ -311,7 +336,7 @@ function showActivity(data) {
   else if (job.status === "failed") detail = problems[job.issue] || t("Proces zakończył się błędem. Sprawdź sesję iCloud.", "The worker failed. Check your iCloud session.");
   else if (job.status === "finished" && job.action === "run" && !job.downloaded) {
     detail = t("Brak nowych plików w tym zakresie.", "No new files in this range.");
-    if (job.limit || job.date_range) detail += t(" Możesz wybrać inny zakres.", " You can choose another range.");
+    if (job.limit || job.date_range || job.months?.length) detail += t(" Możesz wybrać inny zakres.", " You can choose another range.");
   }
   else if (job.status === "running") {
     if (job.current) detail = t("Trwa pobieranie pliku.", "Downloading a file.");
@@ -377,6 +402,8 @@ function showStorage(data) {
     folderFilter.add(new Option(name, folder.name));
     const row = document.createElement("tr");
     row.dataset.folder = folder.name;
+    const selectCell = document.createElement("td");
+    selectCell.className = "folder-select-cell";
     const nameCell = document.createElement("td");
     const pick = document.createElement("button");
     pick.textContent = name;
@@ -396,6 +423,20 @@ function showStorage(data) {
     actions.className = "folder-action-cell";
     if (monthRange(folder.name)) {
       row.dataset.month = folder.name;
+      const box = document.createElement("input");
+      box.type = "checkbox";
+      box.className = "folder-checkbox";
+      box.value = folder.name;
+      box.checked = selectedMonths.has(folder.name);
+      box.setAttribute("aria-label", t(`Zaznacz miesiąc ${folder.name}`, `Select month ${folder.name}`));
+      row.classList.toggle("selected-month", box.checked);
+      box.addEventListener("change", () => {
+        if (box.checked) selectedMonths.add(folder.name);
+        else selectedMonths.delete(folder.name);
+        row.classList.toggle("selected-month", box.checked);
+        updateMonthAction();
+      });
+      selectCell.append(box);
       const menuButton = document.createElement("button");
       menuButton.type = "button";
       menuButton.className = "folder-actions";
@@ -408,7 +449,7 @@ function showStorage(data) {
       });
       actions.append(menuButton);
     }
-    row.append(nameCell, cloud, local, ratio, actions);
+    row.append(selectCell, nameCell, cloud, local, ratio, actions);
     updateFolderValues(row, folder);
     rows.push(row);
   }
@@ -655,7 +696,12 @@ async function refreshActivity() {
     if (current !== activityId) return;
     if (restoreScope) {
       restoreScope = false;
-      if (data.job.action === "run") selectJobScope(data.job);
+      if (data.job.months?.length) {
+        if (!selectedMonths.size) {
+          for (const month of data.job.months) selectedMonths.add(month);
+          syncMonthSelection();
+        }
+      } else if (data.job.action === "run") selectJobScope(data.job);
     }
     operation = data;
     showActivity(data);
@@ -675,10 +721,12 @@ async function refreshActivity() {
   }
 }
 
-async function control(action) {
+async function control(action, months = []) {
   const body = { account: account.value, action };
   if (action === "run") {
-    if (limit.value === "dates") {
+    if (months.length) {
+      body.months = months;
+    } else if (limit.value === "dates") {
       if (!dateFrom.reportValidity() || !dateTo.reportValidity()) return;
       body.date_range = { start: dateFrom.value, end: dateTo.value, timezone: dateZone };
     } else {
@@ -715,6 +763,14 @@ for (const button of datePresets) {
 element("run").addEventListener("click", () => control("run"));
 element("stop").addEventListener("click", () => control("stop"));
 element("scan").addEventListener("click", () => control("scan"));
+batchDownload.addEventListener("click", () => {
+  if (!batchDownload.disabled) control("run", [...selectedMonths].sort());
+});
+element("batch-stop").addEventListener("click", () => control("stop"));
+element("month-stop").addEventListener("click", () => {
+  monthMenu.hidePopover();
+  control("stop");
+});
 element("folder-sizes").addEventListener("contextmenu", (event) => {
   const row = event.target.closest("tr[data-month]");
   if (!row) return;
@@ -754,6 +810,8 @@ document.addEventListener("fullscreenchange", () => {
 account.addEventListener("change", () => {
   if (monthMenu.matches(":popover-open")) monthMenu.hidePopover();
   monthSelection = undefined;
+  selectedMonths.clear();
+  syncMonthSelection();
   page = 1;
   galleryRange = undefined;
   galleryDateFrom.value = galleryDateTo.value = galleryDateTo.min = "";

@@ -36,6 +36,8 @@ export function localizeDocument() {
 
 // The job API returns human-readable Polish errors.
 const errors = new Map([
+  ["Wybierz co najmniej jeden poprawny miesiąc.", "Select at least one valid month."],
+  ["Miesiące wybiera się osobno od zakresu dat lub liczby pozycji.", "Select months separately from a date range or item count."],
   ["Wybierz zakres dat albo liczbę pozycji.", "Choose a date range or a number of items."],
   ["Podaj poprawne daty i strefę czasową.", "Enter valid dates and a time zone."],
   ["Data końcowa musi być równa lub późniejsza od początkowej.", "The end date must be on or after the start date."],

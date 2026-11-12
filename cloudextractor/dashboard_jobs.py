@@ -25,6 +25,7 @@ class Job:
     limit: int | None
     status: str
     date_range: dict[str, str] | None = None
+    months: tuple[str, ...] = ()
     current: str | None = None
     last: str | None = None
     downloaded: int = 0
@@ -52,7 +53,10 @@ class Jobs:
         self.scans: dict[str, Scan | None] = {}
         self.usage: dict[str, dict | None] = {}
 
-    def start(self, account: str, action: str, limit: int | None, date_range: DateRange | None = None) -> None:
+    def start(
+        self, account: str, action: str, limit: int | None, date_range: DateRange | None = None,
+        months: tuple[str, ...] = (),
+    ) -> None:
         with self.lock:
             previous = self.jobs.get(account)
             if previous and previous.status in ("running", "scanning", "stopping"):
@@ -67,13 +71,15 @@ class Jobs:
             if date_range is not None:
                 command.extend(["--date-from", date_range.start, "--date-to", date_range.end,
                                 "--date-zone", date_range.timezone])
+            for month in months:
+                command.extend(["--month", month])
             process = subprocess.Popen(
                 command,
                 env=env, stdin=subprocess.DEVNULL, stdout=subprocess.PIPE,
                 stderr=subprocess.STDOUT, text=True, errors="replace", start_new_session=True,
             )
             job = Job(process, action, limit, "running" if action == "run" else "scanning",
-                      date_range=asdict(date_range) if date_range is not None else None)
+                      date_range=asdict(date_range) if date_range is not None else None, months=months)
             self.jobs[account] = job
             Thread(target=self._collect, args=(account, job), daemon=True).start()
 
