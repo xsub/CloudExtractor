@@ -18,21 +18,28 @@ from tzlocal import get_localzone
 LOGGER = logging.getLogger(__name__)
 
 
-def asset_files(asset: PhotoAsset, config: UserConfig) -> tuple[dict[str, int], bool]:
-    name = build_filename_with_policies(config.file_match_policy, build_filename_cleaner(config.keep_unicode_in_filenames), asset)
+def asset_versions(asset: PhotoAsset, config: UserConfig, name: str):
     versions = asset.versions_with_raw_policy(config.align_raw)
     sizes, overrides = disambiguate_filenames(versions, config.sizes, asset, lp_filename_concatinator, name)
     folder = config.folder_structure.format(asset.created.astimezone(get_localzone()))
-    files = {}
     for size, version in sizes.items():
         filename = calculate_version_filename(name, version, size, lp_filename_concatinator, asset.item_type, overrides.get(size))
-        files[(Path(folder) / filename).as_posix()] = version.size
+        yield Path(folder) / filename, size, version
 
     live = versions.get(config.live_photo_size)
     if live and not config.skip_live_photos:
         filename = calculate_version_filename(name, live, config.live_photo_size, lp_filename_concatinator, asset.item_type)
-        files[(Path(folder) / filename).as_posix()] = live.size
-    return files, AssetVersionSize.ORIGINAL in sizes
+        yield Path(folder) / filename, config.live_photo_size, live
+
+
+def asset_files(asset: PhotoAsset, config: UserConfig) -> tuple[dict[str, int], bool]:
+    name = build_filename_with_policies(config.file_match_policy, build_filename_cleaner(config.keep_unicode_in_filenames), asset)
+    files = {}
+    has_original = False
+    for path, size, version in asset_versions(asset, config, name):
+        files[path.as_posix()] = version.size
+        has_original |= size == AssetVersionSize.ORIGINAL
+    return files, has_original
 
 
 def connect(config: UserConfig) -> PyiCloudService:

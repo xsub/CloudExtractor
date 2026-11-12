@@ -285,7 +285,8 @@ function showJobStats(job) {
   progress.style.setProperty("--listing-progress", checking ? `${Math.min(100, 100 * job.listed / job.items)}%` : "0%");
   element("job-workers").textContent = job ? t(`${Number(active)} z 1`, `${Number(active)} of 1`) : "—";
   element("job-downloaded").textContent = run ? number.format(job.downloaded) : "—";
-  element("job-list-label").textContent = limited ? t("Lista do sprawdzenia", "Items to check") : t("Biblioteka iCloud", "iCloud library");
+  const scoped = limited || job?.date_range || job?.months?.length;
+  element("job-list-label").textContent = scoped ? t("Pozycje do sprawdzenia", "Items to check") : t("Biblioteka iCloud", "iCloud library");
   element("job-list-size").textContent = job?.items != null ? itemCount(job.items) : "—";
 
   let scope = "—";

@@ -57,7 +57,7 @@ Po sprawdzeniu próbki uruchom pełny eksport z pustym `ICLOUD_RECENT`:
 docker compose run --rm -T extractor run
 ```
 
-Archiwum działa zawsze w trybie **APPEND**. Panel i CLI dopisują wyłącznie brakujące pliki. Archiwum zachowuje już pobrane zdjęcia i filmy po ich usunięciu z iCloud.
+Archiwum działa zawsze w trybie **APPEND**. Panel i CLI zachowują pobrane zdjęcia i filmy po ich usunięciu z iCloud. Jeśli nazwa jest już zajęta, identyczna zawartość jest pomijana, a różniący się plik zapisywany z sufiksem od `_001` do `_999` przed rozszerzeniem.
 
 Archiwum używa katalogów `<Apple ID>/rok/miesiąc` w UTC oraz nazw z identyfikatorem zasobu iCloud. Eksport obejmuje oryginały, część wideo Live Photo i dostępną alternatywną reprezentację zasobu, np. parę RAW+JPEG. Po przerwaniu uruchom `run` ponownie z tą samą konfiguracją.
 
@@ -88,11 +88,11 @@ Zakres „Według dat” domyślnie obejmuje dzisiaj. Ustaw daty **Od** i **Do**
 
 Wybierz zakres i kliknij „Uruchom pobieranie”. Wcześniejszy skan nie jest potrzebny. Panel pokazuje stan pobierania niezależnie od ładowania galerii. „Skanuj iCloud” odczytuje metadane całej głównej biblioteki konta i odświeża rozmiar oraz listę braków. Jeśli chcesz rozpocząć pobieranie w trakcie skanu, najpierw użyj „Zatrzymaj skan”. Galeria wczytuje miniatury ze wskazanego katalogu konta. Dwuklik otwiera pełnoekranowy podgląd. Odtwarzanie oryginalnych filmów zależy od obsługi formatu przez przeglądarkę.
 
-Panel pokazuje liczbę aktywnych workerów dla wybranego konta, pliki pobrane w danym przebiegu i zakres zadania. Przy pobieraniu według dat licznik biblioteki pokazuje pozycje przed filtrem dat. Do pobrania trafiają brakujące pliki z wybranego okresu.
+Panel pokazuje liczbę aktywnych workerów dla wybranego konta, pliki pobrane w danym przebiegu i zakres zadania. Przy pobieraniu według dat worker znajduje wybrany okres w indeksie dat wykonania iCloud i liczy pozycje z tego okresu.
 
 Panel pokazuje dwa łączne rozmiary dla wybranego Apple ID. Apple raportuje miejsce zajęte przez Zdjęcia iCloud. Szczegółowy skan liczy pliki dostępne dla eksportu, w tym części wideo Live Photos i warianty RAW+JPEG. Suma lokalna obejmuje pliki w archiwum, także częściowe pobrania. Filtry typu i katalogu pokazują podsumowania wybranych plików obok obu sum. W tabeli katalogów rozmiary są grupowane według ścieżek archiwum `rok/miesiąc`.
 
-Kolumna „Lokalnie / iCloud” porównuje rozmiary w wierszu dla wybranego typu pliku. Kliknij prawym przyciskiem na wierszu miesiąca albo użyj przycisku „⋯”, aby pobrać zdjęcia i filmy z całego miesiąca według dat wykonania w UTC. Aby pobrać kilka miesięcy, zaznacz ich wiersze i wybierz **Pobierz zaznaczone**. Worker sprawdzi bibliotekę raz i pobierze braki z wybranych miesięcy. Jedno konto może wykonywać jedno zadanie naraz.
+Kolumna „Lokalnie / iCloud” porównuje rozmiary w wierszu dla wybranego typu pliku. Kliknij prawym przyciskiem na wierszu miesiąca albo użyj przycisku „⋯”, aby pobrać zdjęcia i filmy z całego miesiąca według dat wykonania w UTC. Aby pobrać kilka miesięcy, zaznacz ich wiersze i wybierz **Pobierz zaznaczone**. Jedno konto może wykonywać jedno zadanie naraz.
 
 Wybierz 20, 50 lub 100 pozycji na stronę. Wpisz numer strony i naciśnij Enter albo „Przejdź”. W galerii pobranych plików możesz włączyć grupowanie według odstępu 2, 5, 10, 30, 45, 60, 90 lub 180 sekund. Zdjęcia i filmy tworzą osobne grupy na podstawie czasu wykonania zapisanego przez `icloudpd` w dacie modyfikacji pliku. Każda seria zajmuje jeden kafel. Kliknij grupę, a potem miniaturę, by otworzyć podgląd zdjęcia lub odtwarzacz filmu.
 
@@ -104,4 +104,4 @@ W galerii wybierz pole i kierunek sortowania. Sortowanie obejmuje cały zestaw p
 
 Moduły źródeł są w `cloudextractor/adapters/`. Każdy adapter wyznacza katalogi archiwum i stanu oraz argumenty procesu dla `run` i `auth`. Polecenie główne wybiera adapter przez `CLOUDEXTRACTOR_SOURCE`, sprawdza archiwum, blokuje równoległe użycie tego samego stanu i przekazuje kod zakończenia procesu. Import z Google Takeout może użyć tej samej obsługi katalogu docelowego i własnej konfiguracji wejścia.
 
-Adaptery przestrzegają trybu APPEND. Adapter iCloud przekazuje `icloudpd` ustaloną listę opcji w trybie Copy.
+Adaptery przestrzegają trybu APPEND. Adapter iCloud korzysta z `icloudpd` do obsługi sesji i wznawiania transferów. System plików archiwum musi obsługiwać dowiązania twarde, aby zapisać kompletny plik bez nadpisania istniejącego.

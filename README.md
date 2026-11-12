@@ -57,7 +57,7 @@ After verifying the sample, leave `ICLOUD_RECENT` empty and run the full export.
 docker compose run --rm -T extractor run
 ```
 
-The archive always runs in **APPEND** mode. The dashboard and CLI add missing files and retain existing copies after their originals are deleted from iCloud.
+The archive always runs in **APPEND** mode. The dashboard and CLI retain existing copies after their originals are deleted from iCloud. If a filename already exists, identical content is skipped and different content is saved with a suffix from `_001` to `_999` before the extension.
 
 The archive uses `<Apple ID>/year/month` folders based on UTC and file names that include the iCloud asset identifier. The export includes originals, Live Photo video components, and available alternate representations such as RAW+JPEG pairs. If a run is interrupted, start `run` again with the same settings.
 
@@ -88,11 +88,11 @@ The **By date** scope defaults to today. Set **From** and **To**, or use **Today
 
 Choose the scope and click **Start download**. A download can start without a scan. The dashboard shows download status while the gallery loads. **Scan iCloud** reads metadata from the account's main library and refreshes storage figures and the list of missing files. Use **Stop scan** to free the account for a download. The gallery loads thumbnails from the selected account's archive directory. Double-click a tile for a full-screen preview. Playback of original videos depends on the formats your browser supports.
 
-The dashboard shows the active worker count for the selected account, the number of files downloaded in the current run, and the job scope. During date-based downloads, the library count shows the number of items before date filtering. The worker downloads missing files within the selected period.
+The dashboard shows the active worker count for the selected account, the number of files downloaded in the current run, and the job scope. For a download by date, the worker finds the selected period in iCloud's capture date index and counts the items in that period.
 
 The dashboard shows total iCloud and local archive sizes for the selected Apple ID. Apple reports storage used by iCloud Photos. The detailed scan counts files available to export, including Live Photo video components and RAW+JPEG variants. The local total includes partial downloads. File type and folder filters show subtotals alongside both overall totals. The folder table groups storage by `year/month`.
 
-The **Local / iCloud** column compares the two sizes for the selected file type. Right-click a month row or use **⋯**, then choose **Download month** to download photos and videos by capture date for that full month in UTC. To download several months, check their rows and choose **Download selected**. The worker checks the library once and downloads missing files from the selected months. Each account can run one job at a time.
+The **Local / iCloud** column compares the two sizes for the selected file type. Right-click a month row or use **⋯**, then choose **Download month** to download photos and videos by capture date for that full month in UTC. To download several months, check their rows and choose **Download selected**. Each account can run one job at a time.
 
 Choose 20, 50, or 100 items per page. Type a page number and press Enter or click **Go**. In the **Downloaded** gallery, group files captured up to 2, 5, 10, 30, 45, 60, 90, or 180 seconds apart. Photos and videos form separate groups based on the capture time that `icloudpd` stores as the file modification time. Each group takes up one tile. Open a group and click a thumbnail to preview a photo or play a video.
 
@@ -104,4 +104,4 @@ Choose a sort field and direction in the gallery. Sorting applies to all results
 
 Source modules live in `cloudextractor/adapters/`. Each adapter determines the archive and state directories and the arguments for the `run` and `auth` commands. The main command selects an adapter using `CLOUDEXTRACTOR_SOURCE`, checks the archive, locks the account's state against concurrent use, and forwards the process exit code. A future Google Takeout adapter can reuse the destination handling and define its own input settings.
 
-Adapters follow APPEND mode. The iCloud adapter passes a fixed set of options to `icloudpd` in Copy mode.
+Adapters follow APPEND mode. The iCloud adapter uses `icloudpd` for session handling and resumable transfers. The archive filesystem must support hard links so a complete file can be published without replacing an existing one.

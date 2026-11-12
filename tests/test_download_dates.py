@@ -2,18 +2,16 @@ from datetime import datetime, timedelta
 import logging
 import os
 from pathlib import Path
-import sys
 from tempfile import TemporaryDirectory
 from types import SimpleNamespace
 import unittest
 from unittest.mock import Mock, patch
 
-from icloudpd import base
 from icloudpd.base import where_builder
 from icloudpd.cli import parse
 
 from cloudextractor.adapters.icloud import prepare
-from cloudextractor.adapters.icloud_months import run as run_months
+from cloudextractor.adapters.icloud_download import month_bounds, rank_windows, window_assets
 from cloudextractor.dashboard import create_app
 from cloudextractor.dashboard_jobs import Job, Jobs
 from cloudextractor.download_dates import DateRange
@@ -24,28 +22,41 @@ class DownloadDatesTest(unittest.TestCase):
         months = ("2026/08", "2026/10")
         with patch.dict(os.environ, {"ICLOUD_USERNAME": "test@example.com", "ICLOUD_RECENT": "20"}, clear=True):
             _, _, command = prepare("run", Path("/archive"), Path("/state"), months=months)
-        self.assertEqual(command[2:4], ["cloudextractor.adapters.icloud_months", "2026/08,2026/10"])
+        self.assertEqual(command[2:5], ["cloudextractor.adapters.icloud_download", "--months", "2026/08,2026/10"])
+        _, (account,) = parse(command[5:])
+        self.assertIsNone(account.recent)
+        self.assertFalse(account.auto_delete)
+        self.assertFalse(account.delete_after_download)
 
-        def simulate_cli():
-            _, (account,) = parse(sys.argv[1:])
-            self.assertIsNone(account.recent)
-            self.assertFalse(account.auto_delete)
-            self.assertFalse(account.delete_after_download)
-            for iso, known, expected in (
-                ("2026-09-01T00:59:59+01:00", True, True),
-                ("2026-09-01T01:00:00+01:00", True, False),
-                ("2026-10-01T00:00:00+00:00", True, True),
-                ("2026-10-01T00:00:00+00:00", False, False),
-            ):
-                with self.subTest(date=iso, known=known):
-                    photo = SimpleNamespace(has_asset_date=known, created=datetime.fromisoformat(iso))
-                    self.assertEqual(base.where_builder(logging.getLogger(__name__), False, None, None,
-                                                        False, lambda _photo: "photo.jpg", photo), expected)
-            return 0
+        dates = [datetime.fromisoformat("2026-11-01T00:00:00+00:00")] * 8000 + [
+            datetime.fromisoformat(value) for value in (
+                "2026-10-31T23:59:59+00:00", "2026-10-01T00:00:00+00:00",
+                "2026-09-01T01:00:00+01:00", "2026-09-01T00:59:59+01:00",
+                "2026-08-01T00:00:00+00:00", "2026-07-31T23:59:59+00:00",
+            )
+        ]
 
-        with patch("cloudextractor.adapters.icloud_months.cli", side_effect=simulate_cli):
-            self.assertEqual(run_months(months, command[4:]), 0)
-        self.assertIs(base.where_builder, where_builder)
+        class Album:
+            page_size = 100
+            offset = 0
+            probes = 0
+
+            def photos_request(self):
+                self.probes += 1
+                fields = {"assetDate": {"value": int(dates[self.offset].timestamp() * 1000)}}
+                return SimpleNamespace(json=lambda: {"records": [{"recordType": "CPLAsset", "fields": fields}]})
+
+            def __iter__(self):
+                while self.offset < len(dates):
+                    yield SimpleNamespace(has_asset_date=True, created=dates[self.offset])
+                    self.offset += 1
+
+        album = Album()
+        windows = rank_windows(album, len(dates), month_bounds(months))
+        self.assertEqual([(start, end) for start, end, _ in windows], [(8000, 8002), (8003, 8005)])
+        self.assertLess(album.probes, 60)
+        self.assertEqual([item.created for window in windows for item in window_assets(album, *window)],
+                         dates[8000:8002] + dates[8003:8005])
 
     def test_listing_progress_is_separate_from_file_transfers(self):
         job = Job(Mock(), "run", None, "running")
@@ -66,7 +77,7 @@ class DownloadDatesTest(unittest.TestCase):
             _, _, command = prepare("run", Path("/archive"), Path("/state"), dates)
 
         self.assertNotIn("--recent", command)
-        _, (account,) = parse(command[1:])
+        _, (account,) = parse(command[3:])
         first = datetime.fromisoformat("2026-03-28T23:00:00+00:00")
         next_day = datetime.fromisoformat("2026-03-29T22:00:00+00:00")
         millisecond = timedelta(milliseconds=1)

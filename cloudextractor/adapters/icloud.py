@@ -58,8 +58,11 @@ def prepare(
     if action == "inventory":
         return archive, state, [sys.executable, "-m", "cloudextractor.adapters.icloud_inventory", *args[1:]]
 
+    if action == "run":
+        args = [sys.executable, "-m", "cloudextractor.adapters.icloud_download", *args[1:]]
     if months:
-        return archive, state, [sys.executable, "-m", "cloudextractor.adapters.icloud_months", ",".join(months), *args[1:]]
+        args[3:3] = ["--months", ",".join(months)]
+        return archive, state, args
 
     if date_range is not None:
         first, last = date_range.utc_bounds()
