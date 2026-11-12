@@ -20,6 +20,7 @@ from cloudextractor.download_dates import DateRange
 
 PAGE_SIZES = (20, 50, 100)
 GROUP_INTERVALS = (2, 5, 10, 30, 45, 60, 90, 180)
+SORT_FIELDS = ("date", "size", "type", "format", "name")
 ACTIVE = ("running", "scanning", "stopping")
 
 
@@ -40,15 +41,34 @@ def group_interval() -> int:
     return interval
 
 
-def capture_bounds(start: str, end: str) -> tuple[float, float, ZoneInfo]:
+def capture_bounds(start: str, end: str, *, calendar: bool = False) -> tuple[float, float, ZoneInfo]:
     timezone = request.args.get("timezone", "UTC")
     try:
         first, last = DateRange(start, end, timezone).utc_bounds()
     except ValueError:
         abort(400)
-    if last - first > timedelta(days=367):
+    if calendar and last - first > timedelta(days=367):
         abort(400)
     return first.timestamp(), last.timestamp(), ZoneInfo(timezone)
+
+
+def filter_dates(catalog: Catalog | None, paths: list[str]) -> list[str]:
+    start = request.args.get("date_from")
+    end = request.args.get("date_to")
+    if start is None and end is None:
+        start = end = request.args.get("day") or None
+    if start is None and end is None:
+        return paths
+    first, last, _ = capture_bounds(start or "", end or "")
+    return [path for path, _ in catalog.dated_paths(paths, first, last)] if catalog else []
+
+
+def sorting() -> tuple[str | None, bool]:
+    field = request.args.get("sort")
+    order = request.args.get("order", "desc")
+    if (field is not None and field not in SORT_FIELDS) or order not in ("asc", "desc"):
+        abort(400)
+    return field, order == "desc"
 
 
 def create_app(archive: Path, state: Path) -> Flask:
@@ -126,17 +146,20 @@ def create_app(archive: Path, state: Path) -> Flask:
         catalog = scan.catalog if view == "pending" and scan else local
         calendar = None
         if "calendar_from" in request.args or "calendar_to" in request.args:
-            first, last, zone = capture_bounds(request.args.get("calendar_from", ""), request.args.get("calendar_to", ""))
+            first, last, zone = capture_bounds(request.args.get("calendar_from", ""),
+                                                request.args.get("calendar_to", ""), calendar=True)
             dated = local is not None and (view != "pending" or scan and scan.dated)
             calendar = catalog.daily_counts(paths, first, last, zone) if dated else None
-        day = request.args.get("day")
-        if day:
-            first, last, _ = capture_bounds(day, day)
-            paths = [path for path, _ in catalog.dated_paths(paths, first, last)] if catalog else []
+        paths = filter_dates(catalog, paths)
         interval = group_interval()
+        sort, descending = sorting()
         groups = {}
+        group_sizes = {}
         if interval and view == "downloaded" and media != "video" and local:
             paths, groups = local.grouped(paths, interval)
+            group_sizes = {path: sum(local.files[member] for member in members) for path, members in groups.items()}
+        if sort and catalog:
+            paths = catalog.ordered(paths, sort, descending, group_sizes)
         visible, page, pages, page_size = paginate(paths)
         local_folders = local.folders if local else {}
         cloud_folders = cloud.folders if cloud else {}
@@ -146,7 +169,8 @@ def create_app(archive: Path, state: Path) -> Flask:
                              "reported_at": usage["time"]}
         return jsonify(
             job=job, ready=ready, downloaded=len(downloaded), pending=len(pending) if scan and ready else None,
-            scan={"time": scan.time, "limit": scan.limit, "unmeasured": scan.unmeasured, "complete": scan.complete} if scan else None,
+            scan={"time": scan.time, "limit": scan.limit, "unmeasured": scan.unmeasured,
+                  "complete": scan.complete, "dated": scan.dated} if scan else None,
             local=local.summary(media, folder) if local else None,
             cloud=cloud_summary,
             folders=[
@@ -158,7 +182,8 @@ def create_app(archive: Path, state: Path) -> Flask:
             paths=visible, page=page, pages=pages, page_size=page_size, total=len(paths),
             sizes={path: catalog.files[path] for path in visible},
             types={path: catalog.types[path] for path in visible},
-            calendar=calendar, groups={path: {"count": len(groups[path]), "bytes": sum(local.files[member] for member in groups[path])}
+            timestamps={path: catalog.timestamps.get(path) for path in visible},
+            calendar=calendar, groups={path: {"count": len(groups[path]), "bytes": group_sizes[path]}
                     for path in visible if path in groups},
         )
 
@@ -171,11 +196,7 @@ def create_app(archive: Path, state: Path) -> Flask:
         folder = request.args.get("folder", "")
         job, _, _ = jobs.snapshot(account)
         local = gallery.items(account, job["status"] in ACTIVE)
-        paths = local.filtered("image", folder)
-        day = request.args.get("day")
-        if day:
-            first, last, _ = capture_bounds(day, day)
-            paths = [path for path, _ in local.dated_paths(paths, first, last)]
+        paths = filter_dates(local, local.filtered("image", folder))
         _, groups = local.grouped(paths, interval)
         path = request.args.get("path", "")
         members = groups.get(path)
@@ -183,9 +204,12 @@ def create_app(archive: Path, state: Path) -> Flask:
             members = next((group for group in groups.values() if path in group), None)
         if not members:
             abort(404)
-        visible, page, pages, _ = paginate(members)
+        sort, descending = sorting()
+        ordered = local.ordered(members, sort, descending) if sort else members
+        visible, page, pages, _ = paginate(ordered)
         return jsonify(
             paths=visible, sizes={path: local.files[path] for path in visible},
+            timestamps={path: local.timestamps[path] for path in visible},
             page=page, pages=pages, count=len(members),
             newest=local.timestamps[members[0]], oldest=local.timestamps[members[-1]],
         )

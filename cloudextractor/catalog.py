@@ -1,7 +1,8 @@
 from collections import Counter, defaultdict
 from collections.abc import Iterator
 from datetime import datetime
-from posixpath import splitext
+from operator import itemgetter
+from posixpath import basename, splitext
 from zoneinfo import ZoneInfo
 
 
@@ -57,6 +58,31 @@ class Catalog:
             day = datetime.fromtimestamp(timestamp, zone).date().isoformat()
             days[day][self.types[path]] += 1
         return dict(days)
+
+    def ordered(self, paths: list[str], field: str, descending: bool, group_sizes: dict[str, int] | None = None) -> list[str]:
+        if field == "date":
+            if not self.timestamps:
+                return paths
+            key = lambda path: self.timestamps.get(path) or None
+        elif field == "size":
+            key = lambda path: group_sizes[path] if group_sizes is not None and path in group_sizes else self.files[path]
+        elif field == "type":
+            key = self.types.__getitem__
+        elif field == "format":
+            key = lambda path: splitext(path)[1].casefold()
+        else:
+            key = lambda path: basename(path).casefold()
+
+        measured = []
+        missing = []
+        for path in paths:
+            value = key(path)
+            if value is None:
+                missing.append(path)
+            else:
+                measured.append((path, value))
+        measured.sort(key=itemgetter(1), reverse=descending)
+        return [path for path, _ in measured] + missing
 
     def grouped(self, paths: list[str], interval: int) -> tuple[list[str], dict[str, list[str]]]:
         timeline = sorted(paths, key=lambda path: (self.timestamps.get(path, float("-inf")), path), reverse=True)

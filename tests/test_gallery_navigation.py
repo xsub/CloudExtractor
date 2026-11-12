@@ -26,9 +26,9 @@ class GalleryNavigationTest(unittest.TestCase):
         self.addCleanup(env.stop)
         self.client = create_app(archive, state).test_client()
 
-    def write(self, name: str, timestamp: int) -> None:
+    def write(self, name: str, timestamp: int, size: int = 4) -> None:
         path = self.media / name
-        path.write_bytes(b"data")
+        path.write_bytes(b"d" * size)
         os.utime(path, (timestamp, timestamp))
 
     def status(self, **query):
@@ -104,3 +104,44 @@ class GalleryNavigationTest(unittest.TestCase):
         archive, state = self.cache.parent.parent / "archive", self.cache.parent
         self.client = create_app(archive, state).test_client()
         self.assertEqual(self.status(**scope)["calendar"], {"2026-11-11": {"video": 1}})
+
+    def test_sort_applies_to_the_entire_date_range_before_paging(self):
+        start = int(datetime.fromisoformat("2026-11-11T23:00:00+00:00").timestamp())
+        for index in range(44):
+            self.write(f"photo-{43 - index:02}.jpg", start + index * 3600, index + 1)
+        self.write("excluded.jpg", start - 1, 1000)
+        scope = {"date_from": "2026-11-12", "date_to": "2026-11-13", "timezone": "Europe/Warsaw"}
+        first = self.status(**scope, sort="date", order="asc", page_size=20)
+        self.assertEqual(first["paths"][0], "2026/11/photo-43.jpg")
+        self.assertEqual(first["total"], 44)
+        second = self.status(**scope, sort="size", order="desc", page=2, page_size=20)
+        self.assertEqual(second["paths"][0], "2026/11/photo-20.jpg")
+        self.assertEqual(list(second["sizes"][path] for path in second["paths"]), list(range(24, 4, -1)))
+
+    def test_group_sort_uses_total_size_and_group_members_keep_their_own_sizes(self):
+        self.write("newer.jpg", 1794438010, 9)
+        self.write("older.jpg", 1794438006, 12)
+        self.write("single.jpg", 1794437990, 16)
+        self.assertEqual(self.status(group_interval=5, sort="size")["paths"], [
+            "2026/11/newer.jpg", "2026/11/single.jpg",
+        ])
+        group = self.client.get("/api/group", query_string={
+            "account": self.account, "path": "2026/11/newer.jpg", "group_interval": 5, "sort": "size",
+        }).get_json()
+        self.assertEqual(group["paths"], ["2026/11/older.jpg", "2026/11/newer.jpg"])
+        self.assertEqual((group["newest"], group["oldest"]), (1794438010, 1794438006))
+
+    def test_pending_files_with_missing_dates_or_sizes_sort_last(self):
+        files = {"2026/11/a.jpg": 5, "2026/11/b.mov": None, "2026/11/c.heic": 10}
+        (self.cache / f"{self.account}.json").write_text(json.dumps({
+            "files": files, "time": "2026-11-12T12:00:00+00:00",
+            "timestamps": {"2026/11/a.jpg": 1794438000, "2026/11/b.mov": 1794438010},
+        }))
+        self.assertEqual(self.status(view="pending", sort="date", order="desc")["paths"], [
+            "2026/11/b.mov", "2026/11/a.jpg", "2026/11/c.heic",
+        ])
+        self.assertEqual(self.status(view="pending", sort="size", order="asc")["paths"], [
+            "2026/11/a.jpg", "2026/11/c.heic", "2026/11/b.mov",
+        ])
+        self.assertEqual(self.status(view="pending", sort="type", order="desc")["paths"][0], "2026/11/b.mov")
+        self.assertEqual(self.status(view="pending", sort="format", order="asc")["paths"][0], "2026/11/c.heic")

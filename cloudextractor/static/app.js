@@ -10,7 +10,11 @@ const browserZone = Intl.DateTimeFormat().resolvedOptions().timeZone || "UTC";
 const mediaFilter = element("media-filter");
 const folderFilter = element("folder-filter");
 const layout = element("library-layout");
-const clearDay = element("clear-day");
+const sortBy = element("gallery-sort");
+const sortOrder = element("gallery-order");
+const galleryDateFrom = element("gallery-date-from");
+const galleryDateTo = element("gallery-date-to");
+const clearRange = element("clear-range");
 const pageSize = element("page-size");
 const pageNumber = element("page-number");
 const groupInterval = element("group-interval");
@@ -46,7 +50,7 @@ let sending = false;
 let dateZone = browserZone;
 let restoreScope = true;
 let openGroupRequest;
-let selectedDay = "";
+let galleryRange;
 const mediaCalendar = new MediaCalendar(element("calendar-panel"), refresh, showDay);
 
 function updateLibraryLayout() {
@@ -54,21 +58,32 @@ function updateLibraryLayout() {
   element("gallery-tools").hidden = calendar;
   gallery.hidden = calendar;
   element("calendar-panel").hidden = !calendar;
-  clearDay.hidden = !selectedDay;
-  if (selectedDay) {
-    const label = calendarDate.format(new Date(selectedDay));
-    clearDay.textContent = `${label} ×`;
-    clearDay.setAttribute("aria-label", `Usuń filtr dnia: ${label}`);
+  clearRange.hidden = !galleryRange;
+  if (galleryRange) {
+    const label = calendarDate.formatRange(new Date(galleryRange.date_from), new Date(galleryRange.date_to));
+    clearRange.textContent = `${label} ×`;
+    clearRange.setAttribute("aria-label", `Usuń zakres dat: ${label}`);
   }
 }
 
-function showDay(day) {
-  selectedDay = day;
-  layout.value = "gallery";
+function setGalleryRange(start = "", end = "") {
+  galleryRange = start && end ? { date_from: start, date_to: end } : undefined;
+  galleryDateFrom.value = start;
+  galleryDateTo.value = end;
+  galleryDateTo.min = start;
   page = 1;
   updateLibraryLayout();
-  clearDay.focus();
   refresh();
+}
+
+function showDay(day) {
+  layout.value = "gallery";
+  setGalleryRange(day, day);
+  clearRange.focus();
+}
+
+function galleryQuery() {
+  return { sort: sortBy.value, order: sortOrder.value, ...galleryRange };
 }
 
 function groupingEnabled() {
@@ -280,12 +295,21 @@ function showPreview(path, kind) {
   viewer.requestFullscreen?.().catch(() => {});
 }
 
-function renderAsset(path, size, kind, { open, count } = {}) {
+function renderTime(timestamp) {
+  const capture = new Date(timestamp * 1000);
+  const time = document.createElement("time");
+  time.dateTime = capture.toISOString();
+  time.textContent = date.format(capture);
+  return time;
+}
+
+function renderAsset(path, size, kind, { open, count, timestamp } = {}) {
   const asset = document.createElement("button");
   const thumb = document.createElement("span");
   const image = document.createElement("img");
   const type = document.createElement("span");
   const name = document.createElement("span");
+  const metadata = document.createElement("span");
   const fileSize = document.createElement("span");
   asset.className = "asset";
   asset.type = "button";
@@ -299,8 +323,10 @@ function renderAsset(path, size, kind, { open, count } = {}) {
   type.textContent = suffix(path).toUpperCase();
   name.className = "asset-name";
   name.textContent = path.split("/").pop();
-  fileSize.className = "asset-size";
+  metadata.className = "asset-meta";
   setBytes(fileSize, size);
+  metadata.append(fileSize);
+  if (timestamp) metadata.append(renderTime(timestamp));
   thumb.append(image, type);
   if (count) {
     const badge = document.createElement("span");
@@ -310,7 +336,7 @@ function renderAsset(path, size, kind, { open, count } = {}) {
     name.textContent = "Grupa zdjęć";
     thumb.append(badge);
   }
-  asset.append(thumb, name, fileSize);
+  asset.append(thumb, name, metadata);
   if (open) {
     asset.addEventListener("click", open);
     return asset;
@@ -335,7 +361,7 @@ function openGroup(path) {
   openGroupRequest = {
     account: account.value, path, folder: folderFilter.value,
     group_interval: groupInterval.value, page_size: pageSize.value, page: 1,
-    day: selectedDay, timezone: browserZone,
+    timezone: browserZone, ...galleryQuery(),
   };
   element("group-items").replaceChildren();
   element("group-info").textContent = "Wczytywanie grupy…";
@@ -355,6 +381,7 @@ async function loadGroup() {
     element("group-info").textContent = `Liczba zdjęć ${number.format(data.count)} · ${captureTime.formatRange(data.oldest * 1000, data.newest * 1000)}`;
     element("group-items").append(...data.paths.map((path) => renderAsset(path, data.sizes[path], "image", {
       open: () => showPreview(path, "image"),
+      timestamp: data.timestamps[path],
     })));
     request.page = data.page + 1;
     more.hidden = data.page >= data.pages;
@@ -366,16 +393,17 @@ async function loadGroup() {
   }
 }
 
-function renderPending(path, size) {
+function renderPending(path, size, timestamp) {
   const row = document.createElement("div");
   const name = document.createElement("span");
-  const date = document.createElement("span");
+  const folder = document.createElement("span");
   const fileSize = document.createElement("span");
   row.className = "pending-row";
+  row.title = path;
   name.textContent = path.split("/").pop();
-  date.textContent = path.split("/").slice(0, -1).join("/");
+  folder.textContent = path.split("/").slice(0, -1).join("/");
   setBytes(fileSize, size);
-  row.append(name, date, fileSize);
+  row.append(name, timestamp ? renderTime(timestamp) : folder, fileSize);
   return row;
 }
 
@@ -388,26 +416,40 @@ function showItems(data) {
   element("next").disabled = page === pages;
   element("page-count").textContent = `/ ${number.format(pages)}`;
   element("grouping-control").hidden = !groupingEnabled();
-  element("page-size-label").textContent = groupingEnabled() && groupInterval.value !== "0" ? "Kafle na stronę" : "Pliki na stronę";
+  const grouped = groupingEnabled() && groupInterval.value !== "0";
+  element("page-size-label").textContent = grouped ? "Kafle na stronę" : "Pliki na stronę";
+  const datesUnavailable = view === "pending" && data.scan && !data.scan.dated;
+  const results = element("gallery-result-count");
+  results.hidden = !galleryRange || datesUnavailable || (view === "pending" && data.pending === null);
+  results.textContent = `${grouped ? "Kafle" : "Pliki"}: ${number.format(data.total)}`;
+  const dateNote = element("gallery-date-note");
+  dateNote.hidden = !datesUnavailable || (!galleryRange && sortBy.value !== "date");
+  dateNote.textContent = "Ten skan nie zawiera dat wykonania. Użyj „Skanuj iCloud”, aby je odczytać.";
 
-  const key = JSON.stringify([account.value, view, selectedDay, page, data.paths, data.sizes, data.groups, data.pending === null, data.ready]);
+  const key = JSON.stringify([account.value, view, galleryRange, page, data.paths, data.sizes, data.timestamps,
+    data.groups, data.pending === null, data.ready, datesUnavailable]);
   if (fingerprint === key) return;
   fingerprint = key;
   gallery.classList.toggle("pending", view === "pending");
   if (data.paths.length) {
     gallery.replaceChildren(...data.paths.map((path) => {
-      if (view === "pending") return renderPending(path, data.sizes[path]);
+      const timestamp = data.timestamps[path];
+      if (view === "pending") return renderPending(path, data.sizes[path], timestamp);
       const group = data.groups[path];
-      if (group) return renderAsset(path, group.bytes, data.types[path], { count: group.count, open: () => openGroup(path) });
-      return renderAsset(path, data.sizes[path], data.types[path]);
+      if (group) return renderAsset(path, group.bytes, data.types[path], {
+        timestamp, count: group.count, open: () => openGroup(path),
+      });
+      return renderAsset(path, data.sizes[path], data.types[path], { timestamp });
     }));
+  } else if (galleryRange && datesUnavailable) {
+    gallery.replaceChildren();
   } else {
     const empty = document.createElement("p");
     empty.className = "empty";
-    empty.textContent = selectedDay ? "Brak plików dla tego dnia i wybranych filtrów."
+    empty.textContent = view === "pending" && data.pending === null ? "Uruchom skan, aby zobaczyć pliki do pobrania."
+      : galleryRange ? "Brak plików w wybranym zakresie dat."
       : view === "downloaded" ? "Brak pobranych plików."
-      : data.pending === null ? "Uruchom skan, aby zobaczyć pliki do pobrania."
-        : "Skan nie znalazł brakujących plików w wybranym zakresie.";
+      : "Skan nie znalazł brakujących plików w wybranym zakresie.";
     gallery.replaceChildren(empty);
   }
 }
@@ -422,7 +464,7 @@ async function refresh() {
       account: account.value, view, page, page_size: pageSize.value, media: mediaFilter.value,
       folder: folderFilter.value, group_interval: groupingEnabled() ? groupInterval.value : "0",
       timezone: browserZone,
-      ...(calendar ? mediaCalendar.query() : { day: selectedDay }),
+      ...(calendar ? mediaCalendar.query() : galleryQuery()),
     });
     const data = await getJson(`/api/state?${query}`);
     if (current !== requestId) return;
@@ -540,7 +582,8 @@ document.addEventListener("fullscreenchange", () => {
 });
 account.addEventListener("change", () => {
   page = 1;
-  selectedDay = "";
+  galleryRange = undefined;
+  galleryDateFrom.value = galleryDateTo.value = galleryDateTo.min = "";
   updateLibraryLayout();
   operation = undefined;
   restoreScope = true;
@@ -557,14 +600,13 @@ account.addEventListener("change", () => {
   refreshActivity();
   refresh();
 });
-for (const filter of [mediaFilter, folderFilter, pageSize, groupInterval]) {
+for (const filter of [mediaFilter, folderFilter, pageSize, groupInterval, sortBy, sortOrder]) {
   filter.addEventListener("change", () => { page = 1; refresh(); });
 }
 const tabs = [...document.querySelectorAll("[data-view]")];
 for (const tab of tabs) {
   tab.addEventListener("click", () => {
     view = tab.dataset.view;
-    selectedDay = "";
     page = 1;
     for (const item of tabs) item.setAttribute("aria-selected", String(item === tab));
     element("library-content").setAttribute("aria-labelledby", tab.id);
@@ -577,11 +619,16 @@ layout.addEventListener("change", () => {
   updateLibraryLayout();
   refresh();
 });
-clearDay.addEventListener("click", () => {
-  selectedDay = "";
-  page = 1;
-  updateLibraryLayout();
-  refresh();
+galleryDateFrom.addEventListener("input", () => { galleryDateTo.min = galleryDateFrom.value; });
+element("gallery-date-form").addEventListener("submit", (event) => {
+  event.preventDefault();
+  setGalleryRange(galleryDateFrom.value, galleryDateTo.value);
+  element("gallery-date-filter").open = false;
+  clearRange.focus();
+});
+clearRange.addEventListener("click", () => {
+  setGalleryRange();
+  element("gallery-date-filter").querySelector("summary").focus();
 });
 
 function limitOption(value) {

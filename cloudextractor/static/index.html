@@ -109,7 +109,21 @@
       <div id="library-content" role="tabpanel" aria-labelledby="tab-downloaded">
         <div id="gallery-tools" class="gallery-tools">
           <div class="view-options">
-            <button type="button" id="clear-day" aria-label="Pokaż wszystkie dni" hidden></button>
+            <label>Sortuj według
+              <select id="gallery-sort">
+                <option value="date">Daty wykonania</option>
+                <option value="size">Rozmiaru</option>
+                <option value="type">Typu (obraz / film)</option>
+                <option value="format">Formatu</option>
+                <option value="name">Nazwy pliku</option>
+              </select>
+            </label>
+            <label>Kolejność
+              <select id="gallery-order">
+                <option value="desc">Malejąco</option>
+                <option value="asc">Rosnąco</option>
+              </select>
+            </label>
             <label><span id="page-size-label">Pliki na stronę</span>
               <select id="page-size">
                 <option value="20">20</option>
@@ -141,6 +155,19 @@
             </form>
             <button id="next" aria-label="Następna strona" disabled>→</button>
           </nav>
+          <div class="gallery-scope">
+            <details id="gallery-date-filter">
+              <summary>Zakres dat</summary>
+              <form id="gallery-date-form">
+                <label>Od <input id="gallery-date-from" type="date" required></label>
+                <label>Do <input id="gallery-date-to" type="date" required></label>
+                <button type="submit">Zastosuj</button>
+              </form>
+            </details>
+            <button type="button" id="clear-range" hidden></button>
+            <span id="gallery-result-count" hidden></span>
+            <p id="gallery-date-note" role="status" hidden></p>
+          </div>
         </div>
         <div id="items" class="gallery"></div>
         <section id="calendar-panel" class="calendar-panel" aria-label="Kalendarz plików" hidden>

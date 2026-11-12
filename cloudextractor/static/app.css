@@ -102,7 +102,12 @@ h2 { font-size: 1.35rem; }
 .gallery-tools select, .gallery-tools input, .gallery-tools button { min-height: 34px; padding: 0 9px; color: #17223a; }
 #page-number { width: 5rem; }
 #page-count { white-space: nowrap; }
-#clear-day { border-color: #b8cff8; background: #eaf1ff; color: #164baf; }
+#clear-range { border-color: #b8cff8; background: #eaf1ff; color: #164baf; }
+.gallery-scope, #gallery-date-form, #gallery-date-form label { display: flex; align-items: center; flex-wrap: wrap; gap: 8px; }
+.gallery-scope { flex-basis: 100%; color: var(--muted); font-size: .82rem; }
+#gallery-date-filter summary { cursor: pointer; padding-block: 5px; }
+#gallery-date-form { padding-block: 4px; }
+#gallery-date-note { margin: 0; flex-basis: 100%; }
 .gallery { display: grid; grid-template-columns: repeat(auto-fill, minmax(145px, 1fr)); gap: 12px; padding: 19px 23px; }
 .asset { display: block; padding: 0; width: 100%; min-width: 0; overflow: hidden; text-align: left; }
 .asset[aria-pressed="true"] { border-color: var(--accent); box-shadow: 0 0 0 2px #8ab0f6; }
@@ -111,12 +116,12 @@ h2 { font-size: 1.35rem; }
 .type { position: absolute; right: 7px; bottom: 7px; color: #fff; background: #111e36d9; border-radius: 4px; padding: 3px 6px; font-size: .66rem; letter-spacing: .04em; }
 .group-count { position: absolute; top: 7px; left: 7px; background: #fff; color: #17223a; border-radius: 4px; padding: 3px 6px; font-size: .72rem; }
 .asset-name { display: block; padding: 9px 8px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-size: .78rem; }
-.asset-size { display: block; padding: 0 8px 8px; color: var(--muted); font-size: .73rem; }
+.asset-meta { display: flex; flex-wrap: wrap; gap: 2px 8px; padding: 0 8px 8px; color: var(--muted); font-size: .73rem; }
 .pending { display: block; padding-block: 8px; }
 .pending-row { display: grid; grid-template-columns: minmax(0, 1fr) auto auto; gap: 10px; border-bottom: 1px solid #edf0f5; padding: 9px 0; font-size: .87rem; }
 .pending-row:last-child { border-bottom: 0; }
 .pending-row span:first-child { overflow-wrap: anywhere; }
-.pending-row span:not(:first-child) { color: var(--muted); }
+.pending-row > :not(:first-child) { color: var(--muted); }
 .empty { grid-column: 1 / -1; color: var(--muted); margin: 14px 0; }
 .pagination { display: flex; align-items: center; flex-wrap: wrap; gap: 7px; font-size: .85rem; }
 

@@ -92,6 +92,8 @@ Wybierz 20, 50 lub 100 pozycji na stronę. Wpisz numer strony i naciśnij Enter 
 
 Wybierz widok „Kalendarz”, aby zobaczyć 1, 3, 6 lub 12 miesięcy. Każdy dzień pokazuje liczbę plików według daty wykonania w strefie przeglądarki (I — obrazy, V — filmy). Kliknij dzień, aby przejść do galerii z filtrem daty. W zakładce „Do pobrania” liczniki wymagają skanu iCloud zapisanego z datami.
 
+W galerii wybierz pole i kierunek sortowania. Sortowanie obejmuje cały zestaw po zastosowaniu filtrów, także zakresu **Od–Do**, przed podziałem na strony. Grupy mają datę najnowszego zdjęcia oraz łączny rozmiar wszystkich zdjęć w grupie. Sortowanie po dacie w „Do pobrania” wymaga skanu z datami wykonania.
+
 ## Adaptery
 
 Moduły źródeł są w `cloudextractor/adapters/`. Każdy adapter wyznacza katalogi archiwum i stanu oraz argumenty procesu dla `run` i `auth`. Polecenie główne wybiera adapter przez `CLOUDEXTRACTOR_SOURCE`, sprawdza archiwum, blokuje równoległe użycie tego samego stanu i przekazuje kod zakończenia procesu. Import z Google Takeout może użyć tej samej obsługi katalogu docelowego i własnej konfiguracji wejścia.
