@@ -1,0 +1,25 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+permissions:
+  contents: read
+
+jobs:
+  tests:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
+        with:
+          persist-credentials: false
+      - name: Build the dashboard image
+        run: docker build --target dashboard --tag cloudextractor-ci .
+      - name: Run the test suite
+        run: |
+          docker run --rm --network none \
+            -v "$PWD/tests:/opt/cloudextractor/tests:ro" \
+            --entrypoint python3 cloudextractor-ci -m unittest discover -s tests -v

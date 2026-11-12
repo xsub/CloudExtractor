@@ -1,8 +1,12 @@
 # CloudExtractor
 
+[![CI](https://github.com/xsub/CloudExtractor/actions/workflows/ci.yml/badge.svg?branch=main&event=push)](https://github.com/xsub/CloudExtractor/actions/workflows/ci.yml)
+
 [Polska dokumentacja](README.pl.md)
 
 CloudExtractor archives original photos and videos on storage you control. The first adapter uses `icloudpd` 1.33.0 in a Linux container. Mount the share from OpenBSD or another server on the Linux host, then use Docker Compose to make the mounted directory available to the container.
+
+![CloudExtractor dashboard showing download progress, the selected month and archive totals](docs/screenshots/download-dashboard.png)
 
 The repository includes an `.env.example` template with the Apple account field left blank. Each host uses its own `.env` and keeps its session in `.state/`. Git ignores both.
 
@@ -96,6 +100,8 @@ The dashboard shows the latest worker error and records errors in `/state/.dashb
 The dashboard shows total iCloud and local archive sizes for the selected Apple ID. Apple reports storage used by iCloud Photos. The detailed scan counts files available to export, including Live Photo video components and RAW+JPEG variants. The local total includes partial downloads. File type and folder filters show subtotals alongside both overall totals. The folder table groups storage by `year/month`.
 
 The **Local / iCloud** column compares the two sizes for the selected file type. Right-click a month row or use **⋯**, then choose **Download month** to download photos and videos by capture date for that full month in UTC. To download several months, check their rows and choose **Download selected**. Each account can run one job at a time.
+
+![CloudExtractor library showing local and iCloud sizes by month, with downloaded and pending file counts](docs/screenshots/library-overview.png)
 
 Choose 20, 50, or 100 items per page. Type a page number and press Enter or click **Go**. In the **Downloaded** gallery, group files captured up to 2, 5, 10, 30, 45, 60, 90, or 180 seconds apart. Photos and videos form separate groups based on the capture time that `icloudpd` stores as the file modification time. Each group takes up one tile. Open a group and click a thumbnail to preview a photo or play a video.
 

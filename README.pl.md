@@ -1,8 +1,12 @@
 # CloudExtractor
 
+[![CI](https://github.com/xsub/CloudExtractor/actions/workflows/ci.yml/badge.svg?branch=main&event=push)](https://github.com/xsub/CloudExtractor/actions/workflows/ci.yml)
+
 [English documentation](README.md)
 
 CloudExtractor zapisuje oryginały zdjęć i filmów na własnym storage. Pierwszy adapter korzysta z `icloudpd` 1.33.0 i działa w kontenerze na Linuksie. Udział z OpenBSD lub innego serwera montujesz na hoście Linuksa, a Docker Compose przekazuje jego katalog do kontenera.
+
+![Panel CloudExtractor z postępem pobierania, wybranym miesiącem i rozmiarem archiwum](docs/screenshots/download-dashboard.png)
 
 Repozytorium zawiera szablon `.env.example` z pustym adresem konta Apple. Każdy host ma własny `.env` i katalog `.state/` z sesją. Git ignoruje te pliki i katalogi.
 
@@ -96,6 +100,8 @@ Panel pokazuje ostatni błąd workera i zapisuje błędy w `/state/.dashboard/wo
 Panel pokazuje dwa łączne rozmiary dla wybranego Apple ID. Apple raportuje miejsce zajęte przez Zdjęcia iCloud. Szczegółowy skan liczy pliki dostępne dla eksportu, w tym części wideo Live Photos i warianty RAW+JPEG. Suma lokalna obejmuje pliki w archiwum, także częściowe pobrania. Filtry typu i katalogu pokazują podsumowania wybranych plików obok obu sum. W tabeli katalogów rozmiary są grupowane według ścieżek archiwum `rok/miesiąc`.
 
 Kolumna „Lokalnie / iCloud” porównuje rozmiary w wierszu dla wybranego typu pliku. Kliknij prawym przyciskiem na wierszu miesiąca albo użyj przycisku „⋯”, aby pobrać zdjęcia i filmy z całego miesiąca według dat wykonania w UTC. Aby pobrać kilka miesięcy, zaznacz ich wiersze i wybierz **Pobierz zaznaczone**. Jedno konto może wykonywać jedno zadanie naraz.
+
+![Biblioteka CloudExtractor z rozmiarami archiwum lokalnego i iCloud według miesięcy oraz licznikami plików](docs/screenshots/library-overview.png)
 
 Wybierz 20, 50 lub 100 pozycji na stronę. Wpisz numer strony i naciśnij Enter albo „Przejdź”. W galerii pobranych plików możesz włączyć grupowanie według odstępu 2, 5, 10, 30, 45, 60, 90 lub 180 sekund. Zdjęcia i filmy tworzą osobne grupy na podstawie czasu wykonania zapisanego przez `icloudpd` w dacie modyfikacji pliku. Każda seria zajmuje jeden kafel. Kliknij grupę, a potem miniaturę, by otworzyć podgląd zdjęcia lub odtwarzacz filmu.
 
