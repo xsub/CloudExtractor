@@ -172,19 +172,49 @@ function updateControls() {
   element("stop").textContent = status === "scanning" ? "Zatrzymaj skan" : "Zatrzymaj";
 }
 
+function showJobStats(job) {
+  const active = ["running", "scanning", "stopping"].includes(job?.status);
+  const run = job?.action === "run";
+  const limited = run && job.limit != null;
+  element("progress").dataset.active = String(active);
+  element("job-workers").textContent = job ? `${Number(active)} z 1` : "—";
+  element("job-downloaded").textContent = run ? number.format(job.downloaded) : "—";
+  element("job-list-label").textContent = limited ? "Lista do sprawdzenia" : "Biblioteka iCloud";
+  element("job-list-size").textContent = job?.items != null ? `${number.format(job.items)} pozycji` : "—";
+
+  let scope = "—";
+  let timezone = "";
+  if (job?.date_range) {
+    const { start, end } = job.date_range;
+    scope = calendarDate.formatRange(new Date(start), new Date(end));
+    timezone = job.date_range.timezone;
+  } else if (run) {
+    scope = limited ? `${number.format(job.limit)} ostatnich pozycji` : "Cała biblioteka";
+  } else if (job?.action === "scan") {
+    scope = "Skan biblioteki";
+  }
+  const scopeValue = element("job-scope");
+  scopeValue.textContent = scope;
+  scopeValue.title = timezone ? `${scope} (${timezone})` : scope;
+
+  const filename = job?.current || job?.last || "";
+  element("job-file-label").textContent = job?.current ? "Pobierany plik" : job?.last ? "Ostatni plik" : "Plik";
+  const file = element("job-file");
+  file.textContent = filename || "—";
+  file.title = filename;
+}
+
 function showActivity(data) {
   const { job, ready } = data;
   const status = element("status");
   status.dataset.state = ready ? job.status : "failed";
   status.textContent = ready ? labels[job.status] : "Archiwum niedostępne";
-  element("progress").hidden = !["running", "scanning", "stopping"].includes(job.status);
-
+  showJobStats(job);
   let detail = "Wybierz zakres i uruchom pobieranie. Wcześniejszy skan nie jest potrzebny.";
   if (!ready) detail = "Sprawdź montowanie katalogu archiwum.";
   else if (job.status === "scanning") {
-    detail = "Odczytywanie rozmiarów z iCloud.";
-    if (job.items) detail += ` · ${number.format(job.listed)} / ${number.format(job.items)} pozycji`;
-    detail += " Możesz zatrzymać skan, aby rozpocząć pobieranie.";
+    detail = job.items == null ? "Łączenie z iCloud przed skanem."
+      : `Skan iCloud · sprawdzono ${number.format(job.listed)} z ${number.format(job.items)} pozycji.`;
   }
   else if (job.status === "stopping") detail = "Zatrzymywanie procesu.";
   else if (job.status === "failed") detail = problems[job.issue] || "Proces zakończył się błędem. Sprawdź sesję iCloud.";
@@ -192,21 +222,14 @@ function showActivity(data) {
     detail = "Brak nowych plików w tym zakresie.";
     if (job.limit || job.date_range) detail += " Możesz wybrać inny zakres.";
   }
-  else if (job.action === "run") {
-    detail = job.status === "running" && !job.items
-      ? "Łączenie z iCloud i ustalanie zakresu."
-      : `Pobrane w tym przebiegu: ${number.format(job.downloaded)}`;
-    if (job.items) detail += ` · Pozycje do sprawdzenia: ${number.format(job.items)}`;
-    if (job.current) detail += ` · Pobierany plik: ${job.current}`;
-    else if (job.last) detail += ` · Ostatni plik: ${job.last}`;
-  } else if (job.status === "finished") detail = "Skan zakończony. Lista braków jest dostępna w zakładce Do pobrania.";
+  else if (job.status === "running") {
+    if (job.items == null) detail = "Łączenie z iCloud.";
+    else if (job.date_range) detail = "Sprawdzanie dat w bibliotece i pobieranie braków z wybranego zakresu.";
+    else detail = "Sprawdzanie i pobieranie brakujących plików.";
+  } else if (job.status === "finished") detail = job.action === "run" ? "Pobieranie zakończone."
+    : "Skan zakończony. Lista braków jest dostępna w zakładce Do pobrania.";
   else if (job.status === "stopped") detail = "Możesz ponownie uruchomić skan lub pobieranie.";
 
-  if (job.date_range) {
-    const { start, end, timezone } = job.date_range;
-    const range = calendarDate.formatRange(new Date(start), new Date(end));
-    detail += ` · ${range} (${timezone})`;
-  }
   element("activity").textContent = detail;
 }
 
@@ -507,7 +530,7 @@ async function refreshActivity() {
     const status = element("status");
     status.dataset.state = "failed";
     status.textContent = "Brak stanu";
-    element("progress").hidden = true;
+    showJobStats();
     element("activity").textContent = "Nie udało się odczytać stanu pobierania. Panel ponowi próbę.";
     operation = undefined;
   } finally {
@@ -594,7 +617,7 @@ account.addEventListener("change", () => {
   const status = element("status");
   status.dataset.state = "idle";
   status.textContent = "Łączenie";
-  element("progress").hidden = true;
+  showJobStats();
   element("activity").textContent = "";
   updateControls();
   refreshActivity();

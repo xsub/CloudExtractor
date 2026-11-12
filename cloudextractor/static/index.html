@@ -21,8 +21,18 @@
         <h1 id="control-heading">Pobieranie iCloud</h1>
         <span id="status" class="status" role="status">Łączenie</span>
       </div>
-      <div class="progress" id="progress" hidden></div>
+      <div class="progress" id="progress" aria-hidden="true"></div>
+      <dl class="job-stats" aria-label="Postęp zadania">
+        <div><dt>Workery konta</dt><dd id="job-workers">—</dd></div>
+        <div><dt>Pobrane pliki</dt><dd id="job-downloaded">—</dd></div>
+        <div><dt id="job-list-label">Biblioteka iCloud</dt><dd id="job-list-size">—</dd></div>
+        <div><dt>Zakres zadania</dt><dd id="job-scope">—</dd></div>
+      </dl>
       <p class="activity" id="activity" aria-live="polite"></p>
+      <div class="job-file">
+        <span id="job-file-label">Plik</span>
+        <span class="job-file-name" id="job-file">—</span>
+      </div>
       <div class="controls">
         <label class="limit">Zakres
           <select id="limit" disabled>

@@ -86,6 +86,8 @@ Zakres „Według dat” domyślnie obejmuje dzisiaj. Ustaw daty **Od** i **Do**
 
 Wybierz zakres i kliknij „Uruchom pobieranie”. Wcześniejszy skan nie jest potrzebny. Panel pokazuje stan pobierania niezależnie od ładowania galerii. „Skanuj iCloud” odczytuje metadane całej głównej biblioteki konta i odświeża rozmiar oraz listę braków. Jeśli chcesz rozpocząć pobieranie w trakcie skanu, najpierw użyj „Zatrzymaj skan”. Galeria wczytuje miniatury ze wskazanego katalogu konta. Dwuklik otwiera pełnoekranowy podgląd. Odtwarzanie oryginalnych filmów zależy od obsługi formatu przez przeglądarkę.
 
+Panel pokazuje liczbę aktywnych workerów dla wybranego konta, pliki pobrane w danym przebiegu i zakres zadania. Przy pobieraniu według dat licznik biblioteki pokazuje pozycje przed filtrem dat. Do pobrania trafiają brakujące pliki z wybranego okresu.
+
 Panel pokazuje dwa łączne rozmiary dla wybranego Apple ID. Apple raportuje miejsce zajęte przez Zdjęcia iCloud. Szczegółowy skan liczy pliki dostępne dla eksportu, w tym części wideo Live Photos i warianty RAW+JPEG. Suma lokalna obejmuje pliki w archiwum, także częściowe pobrania. Filtry typu i katalogu pokazują podsumowania wybranych plików obok obu sum. W tabeli katalogów rozmiary są grupowane według ścieżek archiwum `rok/miesiąc`.
 
 Wybierz 20, 50 lub 100 pozycji na stronę. Wpisz numer strony i naciśnij Enter albo „Przejdź”. W galerii pobranych zdjęć możesz włączyć grupowanie według odstępu 2, 5, 10, 30, 45, 60, 90 lub 180 sekund. CloudExtractor korzysta z czasu wykonania zapisanego przez `icloudpd` w dacie modyfikacji pliku. Po włączeniu grupowania każda seria zajmuje jeden kafel. Kliknij grupę, by zobaczyć jej zdjęcia, a następnie kliknij dowolną miniaturę, by otworzyć pełny ekran.
