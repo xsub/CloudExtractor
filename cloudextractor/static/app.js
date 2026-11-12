@@ -18,6 +18,8 @@ const clearRange = element("clear-range");
 const pageSize = element("page-size");
 const pageNumber = element("page-number");
 const groupInterval = element("group-interval");
+const monthMenu = element("month-menu");
+const monthDownload = element("month-download");
 const gallery = element("items");
 const groupViewer = element("group-viewer");
 const viewer = element("viewer");
@@ -26,6 +28,7 @@ const date = new Intl.DateTimeFormat("pl-PL", { dateStyle: "short", timeStyle: "
 const calendarDate = new Intl.DateTimeFormat("pl-PL", { dateStyle: "medium", timeZone: "UTC" });
 const captureTime = new Intl.DateTimeFormat("pl-PL", { dateStyle: "short", timeStyle: "medium" });
 const decimal = new Intl.NumberFormat("pl-PL", { maximumFractionDigits: 2 });
+const percentage = new Intl.NumberFormat("pl-PL", { style: "percent", maximumFractionDigits: 1 });
 const labels = {
   idle: "Gotowy", running: "Pobieranie", scanning: "Skanowanie", stopping: "Zatrzymywanie",
   stopped: "Zatrzymano", finished: "Zakończono", failed: "Błąd",
@@ -50,6 +53,7 @@ let sending = false;
 let dateZone = browserZone;
 let restoreScope = true;
 let openGroupRequest;
+let monthSelection;
 let galleryRange;
 const mediaCalendar = new MediaCalendar(element("calendar-panel"), refresh, showDay);
 
@@ -147,15 +151,19 @@ function localDate(value) {
   ].join("-");
 }
 
+function selectDownloadDates(start, end, timezone = browserZone) {
+  dateFrom.value = start;
+  dateTo.value = end;
+  dateZone = timezone;
+  limit.value = "dates";
+  updateControls();
+}
+
 function chooseRecentDays(days) {
   const today = new Date();
   const first = new Date(today);
   first.setDate(today.getDate() - (days - 1));
-  dateFrom.value = localDate(first);
-  dateTo.value = localDate(today);
-  dateZone = browserZone;
-  limit.value = "dates";
-  updateControls();
+  selectDownloadDates(localDate(first), localDate(today));
 }
 
 function updateControls() {
@@ -170,6 +178,41 @@ function updateControls() {
   element("scan").disabled = !canWork;
   element("stop").disabled = sending || !["running", "scanning"].includes(status);
   element("stop").textContent = status === "scanning" ? "Zatrzymaj skan" : "Zatrzymaj";
+  updateMonthAction();
+}
+
+function monthRange(folder) {
+  if (!/^(?!0000)\d{4}\/(0[1-9]|1[0-2])$/.test(folder)) return null;
+  const start = `${folder.replace("/", "-")}-01`;
+  const last = new Date(start);
+  last.setUTCMonth(last.getUTCMonth() + 1, 0);
+  return { start, end: last.toISOString().slice(0, 10) };
+}
+
+function updateMonthAction() {
+  const status = operation?.job.status;
+  const active = ["running", "scanning", "stopping"].includes(status);
+  let note = "";
+  if (sending || !operation) note = "Panel odczytuje stan zadania.";
+  else if (!operation.ready) note = "Archiwum jest niedostępne.";
+  else if (active) note = "Dla tego Apple ID trwa zadanie. Pobierz miesiąc po jego zakończeniu.";
+  monthDownload.disabled = !monthSelection || element("run").disabled;
+  const message = element("month-menu-note");
+  message.textContent = note;
+  message.hidden = !note;
+}
+
+function showMonthMenu(month, x, y) {
+  monthSelection = monthRange(month);
+  if (!monthSelection) return;
+  const { start, end } = monthSelection;
+  const range = calendarDate.formatRange(new Date(start), new Date(end));
+  element("month-menu-range").textContent = `${range} · UTC · wszystkie typy plików`;
+  updateMonthAction();
+  if (!monthMenu.matches(":popover-open")) monthMenu.showPopover();
+  monthMenu.style.left = `${Math.max(8, Math.min(x, window.innerWidth - monthMenu.offsetWidth - 8))}px`;
+  monthMenu.style.top = `${Math.max(8, Math.min(y, window.innerHeight - monthMenu.offsetHeight - 8))}px`;
+  (monthDownload.disabled ? monthMenu : monthDownload).focus();
 }
 
 function showJobStats(job) {
@@ -280,9 +323,29 @@ function showStorage(data) {
     nameCell.append(pick);
     const cloud = document.createElement("td");
     const local = document.createElement("td");
+    const ratio = document.createElement("td");
+    ratio.className = "folder-ratio";
+    ratio.textContent = folder.cloud > 0 && folder.local != null ? percentage.format(folder.local / folder.cloud) : "—";
+    ratio.title = "Udział lokalnego rozmiaru w rozmiarze iCloud dla wybranego typu plików.";
+    const actions = document.createElement("td");
+    actions.className = "folder-action-cell";
+    if (monthRange(folder.name)) {
+      row.dataset.month = folder.name;
+      const menuButton = document.createElement("button");
+      menuButton.type = "button";
+      menuButton.className = "folder-actions";
+      menuButton.textContent = "⋯";
+      menuButton.setAttribute("aria-label", `Akcje miesiąca ${folder.name}`);
+      menuButton.setAttribute("aria-controls", "month-menu");
+      menuButton.addEventListener("click", () => {
+        const bounds = menuButton.getBoundingClientRect();
+        showMonthMenu(folder.name, bounds.left, bounds.bottom);
+      });
+      actions.append(menuButton);
+    }
     setBytes(cloud, folder.cloud);
     setBytes(local, folder.local);
-    row.append(nameCell, cloud, local);
+    row.append(nameCell, cloud, local, ratio, actions);
     rows.push(row);
   }
   if (selected && !data.folders.some((folder) => folder.name === selected)) {
@@ -581,6 +644,20 @@ for (const button of datePresets) {
 element("run").addEventListener("click", () => control("run"));
 element("stop").addEventListener("click", () => control("stop"));
 element("scan").addEventListener("click", () => control("scan"));
+element("folder-sizes").addEventListener("contextmenu", (event) => {
+  const row = event.target.closest("tr[data-month]");
+  if (!row) return;
+  event.preventDefault();
+  const bounds = row.querySelector(".folder-actions").getBoundingClientRect();
+  showMonthMenu(row.dataset.month, event.clientX || bounds.left, event.clientY || bounds.bottom);
+});
+monthDownload.addEventListener("click", () => {
+  if (monthDownload.disabled || !monthSelection) return;
+  const { start, end } = monthSelection;
+  monthMenu.hidePopover();
+  selectDownloadDates(start, end, "UTC");
+  control("run");
+});
 element("previous").addEventListener("click", () => { page -= 1; refresh(); });
 element("next").addEventListener("click", () => { page += 1; refresh(); });
 element("page-jump").addEventListener("submit", (event) => {
@@ -604,6 +681,8 @@ document.addEventListener("fullscreenchange", () => {
   if (!document.fullscreenElement && viewer.open) viewer.close();
 });
 account.addEventListener("change", () => {
+  if (monthMenu.matches(":popover-open")) monthMenu.hidePopover();
+  monthSelection = undefined;
   page = 1;
   galleryRange = undefined;
   galleryDateFrom.value = galleryDateTo.value = galleryDateTo.min = "";

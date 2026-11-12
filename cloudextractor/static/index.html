@@ -99,7 +99,15 @@
         <summary>Rozmiary katalogów</summary>
         <div class="folder-table">
           <table aria-label="Rozmiary katalogów dla wybranego typu plików">
-            <thead><tr><th scope="col">Katalog</th><th scope="col">iCloud</th><th scope="col">Lokalnie</th></tr></thead>
+            <thead>
+              <tr>
+                <th scope="col">Katalog</th>
+                <th scope="col">iCloud</th>
+                <th scope="col">Lokalnie</th>
+                <th scope="col">Lokalnie / iCloud</th>
+                <th scope="col" aria-label="Akcje"></th>
+              </tr>
+            </thead>
             <tbody id="folder-sizes"></tbody>
           </table>
         </div>
@@ -204,6 +212,12 @@
       </div>
     </section>
   </main>
+
+  <div id="month-menu" class="month-menu" popover role="group" aria-label="Akcje miesiąca" tabindex="-1">
+    <p id="month-menu-range"></p>
+    <button type="button" id="month-download" disabled>Pobierz miesiąc</button>
+    <p id="month-menu-note" class="month-menu-note" hidden></p>
+  </div>
 
   <dialog id="group-viewer" class="group-dialog" aria-labelledby="group-title">
     <header class="group-header">
