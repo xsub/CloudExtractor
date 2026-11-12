@@ -1,4 +1,4 @@
-from dataclasses import dataclass
+from dataclasses import asdict, dataclass
 from datetime import datetime, timezone
 import json
 import os
@@ -11,6 +11,7 @@ from tempfile import NamedTemporaryFile
 from threading import Lock, Thread, Timer
 
 from cloudextractor.catalog import Catalog
+from cloudextractor.download_dates import DateRange
 
 
 LOG_LINE = re.compile(r"^\d{4}-\d{2}-\d{2} \d{2}:\d{2}:\d{2} (\w+)\s+(.*)$")
@@ -22,6 +23,7 @@ class Job:
     action: str
     limit: int | None
     status: str
+    date_range: dict[str, str] | None = None
     current: str | None = None
     last: str | None = None
     downloaded: int = 0
@@ -48,7 +50,7 @@ class Jobs:
         self.scans: dict[str, Scan | None] = {}
         self.usage: dict[str, dict | None] = {}
 
-    def start(self, account: str, action: str, limit: int | None) -> None:
+    def start(self, account: str, action: str, limit: int | None, date_range: DateRange | None = None) -> None:
         with self.lock:
             previous = self.jobs.get(account)
             if previous and previous.status in ("running", "scanning", "stopping"):
@@ -56,12 +58,17 @@ class Jobs:
 
             env = dict(os.environ, ICLOUD_USERNAME=account, ICLOUD_RECENT=str(limit or ""),
                        CLOUDEXTRACTOR_PROGRESS="1", PYTHONUNBUFFERED="1")
+            command = [sys.executable, "-m", "cloudextractor", "inventory" if action == "scan" else action]
+            if date_range is not None:
+                command.extend(["--date-from", date_range.start, "--date-to", date_range.end,
+                                "--date-zone", date_range.timezone])
             process = subprocess.Popen(
-                [sys.executable, "-m", "cloudextractor", "inventory" if action == "scan" else action],
+                command,
                 env=env, stdin=subprocess.DEVNULL, stdout=subprocess.PIPE,
                 stderr=subprocess.STDOUT, text=True, errors="replace", start_new_session=True,
             )
-            job = Job(process, action, limit, "running" if action == "run" else "scanning")
+            job = Job(process, action, limit, "running" if action == "run" else "scanning",
+                      date_range=asdict(date_range) if date_range is not None else None)
             self.jobs[account] = job
             Thread(target=self._collect, args=(account, job), daemon=True).start()
 

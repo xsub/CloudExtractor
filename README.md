@@ -80,7 +80,9 @@ Na hoście Linuksa uruchom `docker compose up -d --build ui` z katalogu instalac
 ssh -N -L 8765:127.0.0.1:8765 host-linux
 ```
 
-Otwórz [panel CloudExtractor](http://127.0.0.1:8765). Jeśli ustawisz inny port przez `CLOUDEXTRACTOR_UI_PORT` w `.env`, użyj go w poleceniu tunelu i adresie panelu. Panel wybiera Apple ID spośród kont skonfigurowanych lub zalogowanych przez `auth`. Domyślny zakres panelu to `ICLOUD_RECENT` lub 20 pozycji. Opcja „Cała biblioteka” uruchamia pełny przebieg.
+Otwórz [panel CloudExtractor](http://127.0.0.1:8765). Jeśli ustawisz inny port przez `CLOUDEXTRACTOR_UI_PORT` w `.env`, użyj go w poleceniu tunelu i adresie panelu. Panel wybiera Apple ID spośród kont skonfigurowanych lub zalogowanych przez `auth`.
+
+Zakres „Według dat” domyślnie obejmuje dzisiaj. Ustaw daty **Od** i **Do** albo użyj skrótu **Dziś**, **7 dni** lub **30 dni**. Skróty obejmują dzień bieżący. Obie daty wliczają się w zakres, według strefy czasowej przeglądarki. iCloud filtruje według daty wykonania i może przejrzeć metadane całej biblioteki. W menu nadal można wybrać liczbę ostatnio dodanych pozycji lub „Cała biblioteka”. W trybie dat limit `ICLOUD_RECENT` nie obowiązuje.
 
 Wybierz zakres i kliknij „Uruchom pobieranie”. Wcześniejszy skan nie jest potrzebny. Panel pokazuje stan pobierania niezależnie od ładowania galerii. „Skanuj iCloud” odczytuje metadane całej głównej biblioteki konta i odświeża rozmiar oraz listę braków. Jeśli chcesz rozpocząć pobieranie w trakcie skanu, najpierw użyj „Zatrzymaj skan”. Galeria wczytuje miniatury ze wskazanego katalogu konta. Dwuklik otwiera pełnoekranowy podgląd. Odtwarzanie oryginalnych filmów zależy od obsługi formatu przez przeglądarkę.
 

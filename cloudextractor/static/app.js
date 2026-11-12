@@ -1,6 +1,10 @@
 const element = (id) => document.getElementById(id);
 const account = element("account");
 const limit = element("limit");
+const dateFrom = element("date-from");
+const dateTo = element("date-to");
+const datePresets = [...document.querySelectorAll("[data-days]")];
+const browserZone = Intl.DateTimeFormat().resolvedOptions().timeZone || "UTC";
 const mediaFilter = element("media-filter");
 const folderFilter = element("folder-filter");
 const pageSize = element("page-size");
@@ -11,6 +15,7 @@ const groupViewer = element("group-viewer");
 const viewer = element("viewer");
 const number = new Intl.NumberFormat("pl-PL");
 const date = new Intl.DateTimeFormat("pl-PL", { dateStyle: "short", timeStyle: "short" });
+const calendarDate = new Intl.DateTimeFormat("pl-PL", { dateStyle: "medium", timeZone: "UTC" });
 const captureTime = new Intl.DateTimeFormat("pl-PL", { dateStyle: "short", timeStyle: "medium" });
 const decimal = new Intl.NumberFormat("pl-PL", { maximumFractionDigits: 2 });
 const labels = {
@@ -34,7 +39,8 @@ let activityId = 0;
 let loadingGallery = false;
 let loadingActivity = false;
 let sending = false;
-let defaultLimit = 20;
+let dateZone = browserZone;
+let restoreScope = true;
 let openGroupRequest;
 
 function groupingEnabled() {
@@ -80,12 +86,42 @@ function showError(message, target = "error") {
   error.hidden = !message;
 }
 
+function updateDateFields(canStart) {
+  const byDate = limit.value === "dates";
+  element("date-fields").hidden = !byDate;
+  element("date-zone").hidden = !byDate;
+  element("date-zone").textContent = `Daty wykonania · ${dateZone}`;
+  dateFrom.disabled = dateTo.disabled = !canStart || !byDate;
+  dateTo.min = dateFrom.value;
+  for (const button of datePresets) button.disabled = !canStart;
+}
+
+function localDate(value) {
+  return [
+    String(value.getFullYear()).padStart(4, "0"),
+    String(value.getMonth() + 1).padStart(2, "0"),
+    String(value.getDate()).padStart(2, "0"),
+  ].join("-");
+}
+
+function chooseRecentDays(days) {
+  const today = new Date();
+  const first = new Date(today);
+  first.setDate(today.getDate() - (days - 1));
+  dateFrom.value = localDate(first);
+  dateTo.value = localDate(today);
+  dateZone = browserZone;
+  limit.value = "dates";
+  updateControls();
+}
+
 function updateControls() {
   const status = operation?.job.status;
   const active = ["running", "scanning", "stopping"].includes(status);
   const canWork = !sending && !active && operation && account.value;
   const canStart = canWork && operation.ready;
   limit.disabled = !canStart;
+  updateDateFields(canStart);
   element("run").disabled = !canStart;
   element("run").textContent = status === "stopped" && operation.job.action === "run" ? "Wznów pobieranie" : "Uruchom pobieranie";
   element("scan").disabled = !canWork;
@@ -111,7 +147,7 @@ function showActivity(data) {
   else if (job.status === "failed") detail = problems[job.issue] || "Proces zakończył się błędem. Sprawdź sesję iCloud.";
   else if (job.status === "finished" && job.action === "run" && !job.downloaded) {
     detail = "Brak nowych plików w tym zakresie.";
-    if (job.limit) detail += " Wybierz większy zakres, aby sprawdzić starsze pozycje.";
+    if (job.limit || job.date_range) detail += " Możesz wybrać inny zakres.";
   }
   else if (job.action === "run") {
     detail = job.status === "running" && !job.items
@@ -123,6 +159,11 @@ function showActivity(data) {
   } else if (job.status === "finished") detail = "Skan zakończony. Lista braków jest dostępna w zakładce Do pobrania.";
   else if (job.status === "stopped") detail = "Możesz ponownie uruchomić skan lub pobieranie.";
 
+  if (job.date_range) {
+    const { start, end, timezone } = job.date_range;
+    const range = calendarDate.formatRange(new Date(start), new Date(end));
+    detail += ` · ${range} (${timezone})`;
+  }
   element("activity").textContent = detail;
 }
 
@@ -374,7 +415,10 @@ async function refreshActivity() {
     const query = new URLSearchParams({ account: selected });
     const data = await getJson(`/api/jobs?${query}`, { signal: AbortSignal.timeout(10000) });
     if (current !== activityId) return;
-    if (!operation && data.job.action === "run") selectLimit(data.job.limit);
+    if (restoreScope) {
+      restoreScope = false;
+      if (data.job.action === "run") selectJobScope(data.job);
+    }
     operation = data;
     showActivity(data);
   } catch (error) {
@@ -394,7 +438,15 @@ async function refreshActivity() {
 }
 
 async function control(action) {
-  const selected = account.value;
+  const body = { account: account.value, action };
+  if (action === "run") {
+    if (limit.value === "dates") {
+      if (!dateFrom.reportValidity() || !dateTo.reportValidity()) return;
+      body.date_range = { start: dateFrom.value, end: dateTo.value, timezone: dateZone };
+    } else {
+      body.limit = limit.value ? Number(limit.value) : null;
+    }
+  }
   sending = true;
   account.disabled = true;
   ++activityId;
@@ -404,7 +456,7 @@ async function control(action) {
     await getJson("/api/jobs", {
       method: "POST",
       headers: { "Content-Type": "application/json", "X-CloudExtractor": "1" },
-      body: JSON.stringify({ account: selected, action, limit: limit.value ? Number(limit.value) : null }),
+      body: JSON.stringify(body),
       signal: AbortSignal.timeout(10000),
     });
   } catch (error) {
@@ -417,6 +469,11 @@ async function control(action) {
   }
 }
 
+limit.addEventListener("change", updateControls);
+dateFrom.addEventListener("change", updateControls);
+for (const button of datePresets) {
+  button.addEventListener("click", () => chooseRecentDays(Number(button.dataset.days)));
+}
 element("run").addEventListener("click", () => control("run"));
 element("stop").addEventListener("click", () => control("stop"));
 element("scan").addEventListener("click", () => control("scan"));
@@ -445,8 +502,9 @@ document.addEventListener("fullscreenchange", () => {
 account.addEventListener("change", () => {
   page = 1;
   operation = undefined;
+  restoreScope = true;
   folderFilter.value = "";
-  selectLimit(defaultLimit);
+  chooseRecentDays(1);
   showError("");
   showError("", "library-error");
   const status = element("status");
@@ -471,15 +529,27 @@ for (const tab of tabs) {
   });
 }
 
-function selectLimit(value) {
+function limitOption(value) {
   const optionValue = value === null ? "" : String(value);
   if (![...limit.options].some((option) => option.value === optionValue)) {
     limit.add(new Option(`${optionValue} ostatnich pozycji`, optionValue), 0);
   }
-  limit.value = optionValue;
+  return optionValue;
+}
+
+function selectJobScope(job) {
+  if (job.date_range) {
+    dateFrom.value = job.date_range.start;
+    dateTo.value = job.date_range.end;
+    dateZone = job.date_range.timezone;
+    limit.value = "dates";
+  } else {
+    limit.value = limitOption(job.limit);
+  }
 }
 
 async function initialize() {
+  chooseRecentDays(1);
   try {
     const settings = await getJson("/api/accounts");
     for (const name of settings.accounts) account.add(new Option(name, name));
@@ -489,8 +559,7 @@ async function initialize() {
       return;
     }
     account.disabled = false;
-    defaultLimit = settings.default_limit || 20;
-    selectLimit(defaultLimit);
+    limitOption(settings.default_limit || 20);
     refreshActivity();
     refresh();
     setInterval(() => {

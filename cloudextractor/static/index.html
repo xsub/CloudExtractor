@@ -26,6 +26,7 @@
       <div class="controls">
         <label class="limit">Zakres
           <select id="limit" disabled>
+            <option value="dates">Według dat</option>
             <option value="20">20 ostatnich pozycji</option>
             <option value="50">50 ostatnich pozycji</option>
             <option value="100">100 ostatnich pozycji</option>
@@ -34,6 +35,18 @@
             <option value="">Cała biblioteka</option>
           </select>
         </label>
+        <div class="controls" id="date-fields">
+          <label class="limit">Od <input id="date-from" type="date" aria-describedby="date-zone" required disabled></label>
+          <label class="limit">Do <input id="date-to" type="date" aria-describedby="date-zone" required disabled></label>
+        </div>
+        <div class="date-presets" role="group" aria-label="Szybki wybór zakresu dat">
+          <button type="button" data-days="1" disabled>Dziś</button>
+          <button type="button" data-days="7" disabled>7 dni</button>
+          <button type="button" data-days="30" disabled>30 dni</button>
+        </div>
+      </div>
+      <p class="date-zone" id="date-zone"></p>
+      <div class="controls job-actions">
         <button class="primary" id="run" disabled>Uruchom pobieranie</button>
         <button id="stop" class="stop" disabled>Zatrzymaj</button>
         <button id="scan" disabled>Skanuj iCloud</button>

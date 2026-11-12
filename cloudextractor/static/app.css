@@ -22,7 +22,7 @@ button, select, input {
 }
 button { cursor: pointer; font-weight: 650; }
 button:hover:not(:disabled) { border-color: #809ac5; }
-button:disabled, select:disabled { cursor: default; opacity: .48; }
+button:disabled, select:disabled, input:disabled { cursor: default; opacity: .48; }
 :focus-visible { outline: 3px solid #4b86f0; outline-offset: 3px; }
 
 .top { background: #111e36; color: #fff; }
@@ -57,7 +57,11 @@ h2 { font-size: 1.35rem; }
 .activity { min-height: 1.4em; margin: 14px 0 20px; overflow-wrap: anywhere; }
 .controls { display: flex; align-items: end; gap: 8px; flex-wrap: wrap; }
 .limit { align-items: flex-start; flex-direction: column; gap: 5px; margin-right: 6px; color: var(--muted); }
-.limit select { color: #17223a; }
+.limit select, .limit input { color: #17223a; }
+.date-presets { display: flex; flex-wrap: wrap; gap: 6px; }
+.date-presets button { padding-inline: 11px; }
+.date-zone { margin: 8px 0 0; color: var(--muted); font-size: .8rem; }
+.job-actions { margin-top: 14px; }
 .primary { background: var(--accent); border-color: var(--accent); color: #fff; }
 .stop { color: #ad312a; }
 .error { margin: 16px 0 0; color: #a72921; font-size: .88rem; }

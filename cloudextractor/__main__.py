@@ -6,6 +6,7 @@ import sys
 from tempfile import TemporaryFile
 
 from cloudextractor.adapters import icloud
+from cloudextractor.download_dates import DateRange
 
 
 ADAPTERS = {"icloud": icloud.prepare}
@@ -43,7 +44,15 @@ def check_archive(root: Path, archive: Path) -> None:
 def main() -> int:
     parser = argparse.ArgumentParser(description="Archive cloud photos on a mounted share.")
     parser.add_argument("action", nargs="?", choices=("run", "auth", "check", "scan", "inventory", "ui"), default="run")
+    parser.add_argument("--date-from", help="First capture date to download (YYYY-MM-DD)")
+    parser.add_argument("--date-to", help="Last capture date to download, inclusive (YYYY-MM-DD)")
+    parser.add_argument("--date-zone", help="IANA time zone of the capture date range (default: UTC)")
     args = parser.parse_args()
+    date_range = None
+    if any(value is not None for value in (args.date_from, args.date_to, args.date_zone)):
+        if args.action != "run" or args.date_from is None or args.date_to is None:
+            parser.error("--date-from and --date-to are required together and only supported for run")
+        date_range = DateRange(args.date_from, args.date_to, args.date_zone or "UTC")
 
     source = os.environ.get("CLOUDEXTRACTOR_SOURCE", "icloud")
     if source not in ADAPTERS:
@@ -60,7 +69,7 @@ def main() -> int:
         if args.action == "auth" and not sys.stdin.isatty():
             raise ValueError("Run authentication from an interactive terminal.")
 
-        archive, state, command = ADAPTERS[source](args.action, ARCHIVE, STATE)
+        archive, state, command = ADAPTERS[source](args.action, ARCHIVE, STATE, date_range)
         if args.action not in ("auth", "inventory"):
             check_archive(ARCHIVE, archive)
         create_directory(state)

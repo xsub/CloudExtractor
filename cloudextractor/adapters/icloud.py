@@ -3,6 +3,8 @@ from pathlib import Path
 import re
 import sys
 
+from cloudextractor.download_dates import DateRange
+
 
 def account_name(value: str) -> str:
     username = value.strip().lower()
@@ -11,7 +13,9 @@ def account_name(value: str) -> str:
     return username
 
 
-def prepare(action: str, archive: Path, state: Path) -> tuple[Path, Path, list[str]]:
+def prepare(
+    action: str, archive: Path, state: Path, date_range: DateRange | None = None,
+) -> tuple[Path, Path, list[str]]:
     configured_account = os.environ.get("ICLOUD_USERNAME", "")
     if action == "check" and not configured_account.strip():
         return archive, state, []
@@ -52,6 +56,11 @@ def prepare(action: str, archive: Path, state: Path) -> tuple[Path, Path, list[s
     ])
     if action == "inventory":
         return archive, state, [sys.executable, "-m", "cloudextractor.adapters.icloud_inventory", *args[1:]]
+
+    if date_range is not None:
+        first, last = date_range.utc_bounds()
+        args.extend(["--skip-created-before", first.isoformat(), "--skip-created-after", last.isoformat()])
+        return archive, state, args
 
     recent = os.environ.get("ICLOUD_RECENT", "").strip()
     if recent:
