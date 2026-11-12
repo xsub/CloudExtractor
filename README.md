@@ -75,10 +75,15 @@ Verify the archive independently before disconnecting iCloud, including coverage
 
 ## Multiple Apple accounts
 
-Each run uses the account specified in `ICLOUD_USERNAME`. Accounts have separate archive directories, sessions, and locks. The account subdirectory is named after its lowercase email address. To authenticate and test another account, substitute its email in both commands.
+Each run uses the account specified in `ICLOUD_USERNAME`. Accounts have separate archive directories, sessions, and locks. The account subdirectory is named after its lowercase email address. To add an account, run this script in an interactive terminal on the Docker host.
 
 ```sh
-ICLOUD_USERNAME=second-account@example.com docker compose run --rm extractor auth
+bash scripts/add-apple-id.sh
+```
+
+Enter the Apple Account email, password, and 2FA code in the terminal. The script checks that the account's archive is writable. Reload the dashboard and select the new Apple ID. You can also download a sample from the terminal by substituting the account email below.
+
+```sh
 ICLOUD_USERNAME=second-account@example.com ICLOUD_RECENT=20 docker compose run --rm -T extractor run
 ```
 

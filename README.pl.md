@@ -75,10 +75,15 @@ Przed odłączeniem iCloud trzeba zweryfikować kompletność osobno, w tym zakr
 
 ## Wiele kont Apple
 
-Każde uruchomienie obsługuje konto wskazane w `ICLOUD_USERNAME`. Konta mają osobne katalogi archiwum, sesje i blokady. Nazwa podkatalogu to adres konta zapisany małymi literami. Aby uwierzytelnić i przetestować kolejne konto, podstaw jego adres w obu poleceniach:
+Każde uruchomienie obsługuje konto wskazane w `ICLOUD_USERNAME`. Konta mają osobne katalogi archiwum, sesje i blokady. Nazwa podkatalogu to adres konta zapisany małymi literami. Aby dodać konto, uruchom skrypt w interaktywnym terminalu na hoście Dockera.
 
 ```sh
-ICLOUD_USERNAME=drugie-konto@example.com docker compose run --rm extractor auth
+bash scripts/add-apple-id.sh
+```
+
+Podaj adres konta Apple, hasło i kod 2FA w terminalu. Skrypt sprawdzi dostęp do zapisu w katalogu archiwum tego konta. Odśwież panel i wybierz nowe Apple ID. Możesz też pobrać próbkę z terminala, podstawiając adres konta w poniższym poleceniu.
+
+```sh
 ICLOUD_USERNAME=drugie-konto@example.com ICLOUD_RECENT=20 docker compose run --rm -T extractor run
 ```
 
