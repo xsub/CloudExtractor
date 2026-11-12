@@ -34,11 +34,11 @@
             <option value="">Cała biblioteka</option>
           </select>
         </label>
-        <button class="primary" id="run" disabled>Uruchom</button>
+        <button class="primary" id="run" disabled>Uruchom pobieranie</button>
         <button id="stop" class="stop" disabled>Zatrzymaj</button>
         <button id="scan" disabled>Skanuj iCloud</button>
       </div>
-      <p id="error" role="alert" hidden></p>
+      <p id="error" class="error" role="alert" hidden></p>
     </section>
 
     <section class="library" aria-labelledby="library-heading">
@@ -46,6 +46,7 @@
         <h2 id="library-heading">Biblioteka</h2>
         <p id="scope"></p>
       </div>
+      <p id="library-error" class="error" role="status" hidden></p>
       <div class="storage-summary" aria-label="Łączne rozmiary biblioteki">
         <div class="storage-card">
           <span>iCloud Photos · razem</span>

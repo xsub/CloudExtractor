@@ -162,6 +162,11 @@ def create_app(archive: Path, state: Path) -> Flask:
             newest=local.timestamps[members[0]], oldest=local.timestamps[members[-1]],
         )
 
+    @app.get("/api/jobs")
+    def job_status():
+        account = selected_account(request.args.get("account", ""))
+        return jsonify(job=jobs.status(account), ready=archive_ready())
+
     @app.post("/api/jobs")
     def control():
         data = request.get_json(silent=True)

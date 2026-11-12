@@ -26,10 +26,13 @@ const problems = {
 
 let view = "downloaded";
 let page = 1;
-let snapshot;
+let operation;
 let fingerprint;
 let folderFingerprint;
 let requestId = 0;
+let activityId = 0;
+let loadingGallery = false;
+let loadingActivity = false;
 let sending = false;
 let defaultLimit = 20;
 let openGroupRequest;
@@ -71,48 +74,59 @@ async function getJson(path, options) {
   return response.json();
 }
 
-function showError(message) {
-  const error = element("error");
+function showError(message, target = "error") {
+  const error = element(target);
   error.textContent = message;
   error.hidden = !message;
 }
 
 function updateControls() {
-  const status = snapshot?.job.status;
+  const status = operation?.job.status;
   const active = ["running", "scanning", "stopping"].includes(status);
-  const canWork = !sending && !active && snapshot && account.value;
-  const canStart = canWork && snapshot.ready;
+  const canWork = !sending && !active && operation && account.value;
+  const canStart = canWork && operation.ready;
   limit.disabled = !canStart;
   element("run").disabled = !canStart;
-  element("run").textContent = status === "stopped" && snapshot.job.action === "run" ? "Wznów" : "Uruchom";
+  element("run").textContent = status === "stopped" && operation.job.action === "run" ? "Wznów pobieranie" : "Uruchom pobieranie";
   element("scan").disabled = !canWork;
   element("stop").disabled = sending || !["running", "scanning"].includes(status);
+  element("stop").textContent = status === "scanning" ? "Zatrzymaj skan" : "Zatrzymaj";
 }
 
 function showActivity(data) {
-  const { job, scan, ready } = data;
+  const { job, ready } = data;
   const status = element("status");
   status.dataset.state = ready ? job.status : "failed";
   status.textContent = ready ? labels[job.status] : "Archiwum niedostępne";
   element("progress").hidden = !["running", "scanning", "stopping"].includes(job.status);
 
-  let detail = "Wybierz zakres i uruchom pobieranie lub skan iCloud.";
+  let detail = "Wybierz zakres i uruchom pobieranie. Wcześniejszy skan nie jest potrzebny.";
   if (!ready) detail = "Sprawdź montowanie katalogu archiwum.";
   else if (job.status === "scanning") {
     detail = "Odczytywanie rozmiarów z iCloud.";
     if (job.items) detail += ` · ${number.format(job.listed)} / ${number.format(job.items)} pozycji`;
+    detail += " Możesz zatrzymać skan, aby rozpocząć pobieranie.";
   }
   else if (job.status === "stopping") detail = "Zatrzymywanie procesu.";
   else if (job.status === "failed") detail = problems[job.issue] || "Proces zakończył się błędem. Sprawdź sesję iCloud.";
+  else if (job.status === "finished" && job.action === "run" && !job.downloaded) {
+    detail = "Brak nowych plików w tym zakresie.";
+    if (job.limit) detail += " Wybierz większy zakres, aby sprawdzić starsze pozycje.";
+  }
   else if (job.action === "run") {
-    detail = `Pobrane w tym przebiegu: ${number.format(job.downloaded)}`;
+    detail = job.status === "running" && !job.items
+      ? "Łączenie z iCloud i ustalanie zakresu."
+      : `Pobrane w tym przebiegu: ${number.format(job.downloaded)}`;
     if (job.items) detail += ` · Pozycje do sprawdzenia: ${number.format(job.items)}`;
     if (job.current) detail += ` · Pobierany plik: ${job.current}`;
     else if (job.last) detail += ` · Ostatni plik: ${job.last}`;
-  } else if (job.status === "finished" && scan) detail = "Skan zakończony. Lista braków jest dostępna w zakładce Do pobrania.";
+  } else if (job.status === "finished") detail = "Skan zakończony. Lista braków jest dostępna w zakładce Do pobrania.";
   else if (job.status === "stopped") detail = "Możesz ponownie uruchomić skan lub pobieranie.";
 
   element("activity").textContent = detail;
+}
+
+function showLibraryCounts(data) {
   element("downloaded-count").textContent = number.format(data.downloaded);
   element("pending-count").textContent = data.pending === null ? "—" : number.format(data.pending);
   element("scope").textContent = view === "downloaded" && data.downloaded
@@ -331,6 +345,7 @@ function showItems(data) {
 async function refresh() {
   if (!account.value) return;
   const current = ++requestId;
+  loadingGallery = true;
   try {
     const query = new URLSearchParams({
       account: account.value, view, page, page_size: pageSize.value, media: mediaFilter.value,
@@ -338,34 +353,67 @@ async function refresh() {
     });
     const data = await getJson(`/api/state?${query}`);
     if (current !== requestId) return;
-    if (!snapshot && data.job.action === "run") selectLimit(data.job.limit);
-    snapshot = data;
-    showActivity(data);
+    showLibraryCounts(data);
     showStorage(data);
     showItems(data);
+    showError("", "library-error");
   } catch (error) {
     if (current !== requestId) return;
-    snapshot = undefined;
-    showError(error.message);
+    showError(`Nie udało się odświeżyć biblioteki: ${error.message}`, "library-error");
+  } finally {
+    if (current === requestId) loadingGallery = false;
   }
-  updateControls();
+}
+
+async function refreshActivity() {
+  const selected = account.value;
+  if (!selected) return;
+  const current = ++activityId;
+  loadingActivity = true;
+  try {
+    const query = new URLSearchParams({ account: selected });
+    const data = await getJson(`/api/jobs?${query}`, { signal: AbortSignal.timeout(10000) });
+    if (current !== activityId) return;
+    if (!operation && data.job.action === "run") selectLimit(data.job.limit);
+    operation = data;
+    showActivity(data);
+  } catch (error) {
+    if (current !== activityId) return;
+    const status = element("status");
+    status.dataset.state = "failed";
+    status.textContent = "Brak stanu";
+    element("progress").hidden = true;
+    element("activity").textContent = "Nie udało się odczytać stanu pobierania. Panel ponowi próbę.";
+    operation = undefined;
+  } finally {
+    if (current === activityId) {
+      loadingActivity = false;
+      updateControls();
+    }
+  }
 }
 
 async function control(action) {
+  const selected = account.value;
   sending = true;
+  account.disabled = true;
+  ++activityId;
   showError("");
   updateControls();
   try {
     await getJson("/api/jobs", {
       method: "POST",
       headers: { "Content-Type": "application/json", "X-CloudExtractor": "1" },
-      body: JSON.stringify({ account: account.value, action, limit: limit.value ? Number(limit.value) : null }),
+      body: JSON.stringify({ account: selected, action, limit: limit.value ? Number(limit.value) : null }),
+      signal: AbortSignal.timeout(10000),
     });
   } catch (error) {
     showError(error.message);
   } finally {
+    await refreshActivity();
     sending = false;
-    refresh();
+    account.disabled = false;
+    updateControls();
   }
 }
 
@@ -396,11 +444,18 @@ document.addEventListener("fullscreenchange", () => {
 });
 account.addEventListener("change", () => {
   page = 1;
-  snapshot = undefined;
+  operation = undefined;
   folderFilter.value = "";
   selectLimit(defaultLimit);
   showError("");
+  showError("", "library-error");
+  const status = element("status");
+  status.dataset.state = "idle";
+  status.textContent = "Łączenie";
+  element("progress").hidden = true;
+  element("activity").textContent = "";
   updateControls();
+  refreshActivity();
   refresh();
 });
 for (const filter of [mediaFilter, folderFilter, pageSize, groupInterval]) {
@@ -436,8 +491,12 @@ async function initialize() {
     account.disabled = false;
     defaultLimit = settings.default_limit || 20;
     selectLimit(defaultLimit);
-    await refresh();
-    setInterval(refresh, 2500);
+    refreshActivity();
+    refresh();
+    setInterval(() => {
+      if (!loadingActivity && !sending) refreshActivity();
+      if (!loadingGallery) refresh();
+    }, 2500);
   } catch (error) {
     showError(error.message);
   }

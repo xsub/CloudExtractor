@@ -100,12 +100,19 @@ class Jobs:
             except subprocess.TimeoutExpired:
                 self._force_stop(job)
 
+    def _status(self, account: str) -> dict:
+        job = self.jobs.get(account)
+        if job:
+            return {key: value for key, value in vars(job).items() if key != "process"}
+        return {"status": "idle", "downloaded": 0, "errors": 0}
+
+    def status(self, account: str) -> dict:
+        with self.lock:
+            return self._status(account)
+
     def snapshot(self, account: str) -> tuple[dict, Scan | None, dict | None]:
         with self.lock:
-            job = self.jobs.get(account)
-            status = {"status": "idle", "downloaded": 0, "errors": 0}
-            if job:
-                status = {key: value for key, value in vars(job).items() if key != "process"}
+            status = self._status(account)
             if account not in self.scans:
                 try:
                     data = json.loads(self._scan_file(account).read_text())

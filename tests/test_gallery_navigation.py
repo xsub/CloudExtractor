@@ -33,6 +33,14 @@ class GalleryNavigationTest(unittest.TestCase):
         self.assertEqual(response.status_code, 200)
         return response.get_json()
 
+    def test_job_controls_can_read_status_without_gallery_or_inventory(self):
+        with patch("cloudextractor.dashboard.Gallery.items", side_effect=OSError("Gallery unavailable")), \
+             patch("cloudextractor.dashboard.Jobs.snapshot", side_effect=OSError("Inventory unavailable")):
+            response = self.client.get("/api/jobs", query_string={"account": self.account})
+        self.assertEqual(response.status_code, 200)
+        self.assertTrue(response.json["ready"])
+        self.assertEqual(response.json["job"]["status"], "idle")
+
     def test_direct_page_and_page_size(self):
         for number in range(111):
             self.write(f"photo-{number:03}.jpg", 1794438000 + number * 60)

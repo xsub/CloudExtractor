@@ -60,7 +60,7 @@ h2 { font-size: 1.35rem; }
 .limit select { color: #17223a; }
 .primary { background: var(--accent); border-color: var(--accent); color: #fff; }
 .stop { color: #ad312a; }
-#error { margin: 16px 0 0; color: #a72921; font-size: .88rem; }
+.error { margin: 16px 0 0; color: #a72921; font-size: .88rem; }
 .progress { overflow: hidden; height: 3px; background: #e8f0ff; margin-top: 13px; border-radius: 3px; }
 .progress::before { content: ""; display: block; height: 100%; width: 30%; background: var(--accent); animation: slide 1.5s infinite ease-in-out; }
 @keyframes slide { from { transform: translateX(-100%); } to { transform: translateX(335%); } }
